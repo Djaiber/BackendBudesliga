@@ -1,10 +1,10 @@
 # Phase 4 Progress: Infrastructure Adapters
 
-## Status: IN PROGRESS (Deliverables 1-6 Complete)
+## Status: IN PROGRESS (Deliverables 1-8 Complete)
 
 Phase 4 implements AWS-backed adapters for all domain ports. This document tracks progress through the 17-step deliverable sequence.
 
-**Latest Update**: Deliverables 4-6 complete - all three DynamoDB repositories implemented with 100% test coverage using unittest.mock approach.
+**Latest Update**: Deliverables 7-8 complete - Connection repository + Clock/ID generator adapters. Total: 74 tests passing (64 integration + 10 unit).
 
 ## Completed ✅
 
@@ -102,19 +102,33 @@ Updated `pyproject.toml`:
   - Uses reserved word workaround for 'status' attribute
 - **Coverage**: 100%
 
-## Next Steps (Remaining 11 deliverables)
-
-### 7. Connection Repository DDB (NEW - not a domain port)
+### 7. Connection Repository DDB ✅
 - **File**: `src/infrastructure/dynamodb/connection_repository_ddb.py`
-- **Tests**: `tests/integration/dynamodb/test_connection_repository_ddb.py`
-- **Purpose**: Track WebSocket connections (AWS-specific, not in domain)
+- **Tests**: `tests/integration/dynamodb/test_connection_repository_ddb.py` (11 tests, all passing)
+- **Purpose**: Track WebSocket connections (AWS-specific, not a domain port)
 - **Methods**: put, get, delete, list_by_room, update_room
-- **TTL**: 1 hour automatic expiration
+- **Features**:
+  - Connection items with user_id, room_id, connected_at_ms
+  - GSI1 for room-based connection queries
+  - Automatic TTL expiration (1 hour default, configurable)
+  - Update room support for room merging scenarios
+- **Coverage**: 100%
 
-### 8. Clock + ID Generator
-- **Files**: `src/infrastructure/clock/system_clock.py`, `src/infrastructure/id_generator/uuid_id_generator.py`
-- **Tests**: Small unit tests
+### 8. Clock + ID Generator ✅
+- **Files**: 
+  - `src/infrastructure/clock/system_clock.py`
+  - `src/infrastructure/id_generator/uuid_id_generator.py`
+- **Tests**: 
+  - `tests/unit/infrastructure/clock/test_system_clock.py` (4 tests)
+  - `tests/unit/infrastructure/id_generator/test_uuid_id_generator.py` (6 tests)
 - **Implements**: `Clock` and `IdGenerator` ports
+- **Features**:
+  - SystemClock: Uses `time.time() * 1000` for millisecond precision
+  - UuidIdGenerator: Generates IDs like `PREFIX-8hexchars` using uuid4
+  - Pure unit tests, no AWS dependencies
+- **Coverage**: 100%
+
+## Next Steps (Remaining 9 deliverables)
 
 ### 9. EventBridge Publisher
 - **File**: `src/infrastructure/eventbridge/eventbridge_publisher.py`
@@ -226,12 +240,24 @@ pytest tests/integration/dynamodb/test_score_repository_ddb.py -v
 pytest tests/integration/dynamodb/test_window_repository_ddb.py -v
 # ✅ 12 passed in 0.50s (100% coverage)
 
+# Connection Repository tests
+pytest tests/integration/dynamodb/test_connection_repository_ddb.py -v
+# ✅ 11 passed in 0.52s (100% coverage)
+
 # All DynamoDB tests
 pytest tests/integration/dynamodb/ -v
-# ✅ 53 passed in 0.56s
+# ✅ 64 passed in 0.70s
+
+# Clock tests
+pytest tests/unit/infrastructure/clock/ -v
+# ✅ 4 passed in 0.10s (100% coverage)
+
+# ID Generator tests
+pytest tests/unit/infrastructure/id_generator/ -v
+# ✅ 6 passed in 0.05s (100% coverage)
 
 # Total so far
-# ✅ 64 integration tests passing (11 config + 53 dynamodb)
+# ✅ 74 tests passing (64 integration + 10 unit)
 ```
 
 ## File Structure (Current)
@@ -240,13 +266,20 @@ pytest tests/integration/dynamodb/ -v
 src/infrastructure/
 ├── __init__.py
 ├── config.py ✅
+├── clock/
+│   ├── __init__.py
+│   └── system_clock.py ✅
+├── id_generator/
+│   ├── __init__.py
+│   └── uuid_id_generator.py ✅
 └── dynamodb/
     ├── __init__.py
     ├── schema.py ✅
     ├── client.py ✅
     ├── room_repository_ddb.py ✅
     ├── score_repository_ddb.py ✅
-    └── window_repository_ddb.py ✅
+    ├── window_repository_ddb.py ✅
+    └── connection_repository_ddb.py ✅
 
 tests/integration/
 ├── __init__.py
@@ -257,18 +290,30 @@ tests/integration/
     ├── test_client.py ✅ (4 tests)
     ├── test_room_repository_ddb.py ✅ (11 tests)
     ├── test_score_repository_ddb.py ✅ (9 tests)
-    └── test_window_repository_ddb.py ✅ (12 tests)
+    ├── test_window_repository_ddb.py ✅ (12 tests)
+    └── test_connection_repository_ddb.py ✅ (11 tests)
+
+tests/unit/infrastructure/
+├── __init__.py
+├── clock/
+│   ├── __init__.py
+│   └── test_system_clock.py ✅ (4 tests)
+└── id_generator/
+    ├── __init__.py
+    └── test_uuid_id_generator.py ✅ (6 tests)
 ```
 
 ## Estimated Remaining Effort
 
-- **DynamoDB Repositories** (4 repos): ~2-3 hours
-- **Simple Adapters** (Clock, ID, EventBridge): ~30 minutes
-- **Complex Adapters** (WebSocket, Bedrock, Replay): ~2 hours
-- **Cognito Validator**: ~1 hour
-- **Smoke Tests**: ~1 hour
-- **Integration & Debugging**: ~1 hour
-- **Total**: ~7-8 hours
+- **EventBridge Publisher** (deliverable 9): ~30 minutes
+- **S3 Replay Loader** (deliverable 10): ~45 minutes
+- **WebSocket Broadcaster** (deliverable 11): ~45 minutes
+- **Prompt Cache + Bedrock Generator** (deliverables 12-13): ~1.5 hours
+- **Replay Engine** (deliverable 14): ~1 hour
+- **Cognito Validator** (deliverable 15): ~1 hour
+- **Smoke Tests** (deliverable 16): ~1 hour
+- **Integration & Debugging** (deliverable 17): ~1 hour
+- **Total**: ~6-7 hours
 
 ## Success Criteria
 
@@ -291,6 +336,5 @@ When Phase 4 is complete:
 ## Next Commit
 
 Will include:
-- Connection Repository (deliverable 7) - WebSocket connection tracking
-- Clock + ID generator adapters (deliverable 8) - simple implementations
+- EventBridge Publisher (deliverable 9) - event publishing to AWS EventBridge
 - Progress toward remaining deliverables
