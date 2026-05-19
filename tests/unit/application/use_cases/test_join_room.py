@@ -70,7 +70,7 @@ async def test_new_player_creates_new_room(
 ) -> None:
     """Test new player creates new room when no mergeable rooms exist."""
     result = await use_case.execute(
-        player_id="p1",
+        user_id="p1",
         player_name="Alice",
         connection_id="conn1",
         room_id=None,
@@ -79,7 +79,7 @@ async def test_new_player_creates_new_room(
     # Check result
     assert result.room.room_id == "ROOM-1"
     assert len(result.room.players) == 1
-    assert result.player.player_id == "p1"
+    assert result.player.user_id == "p1"
     assert result.player.name == "Alice"
     assert result.player.score == 0
     assert result.player.tier == "Dummies"
@@ -112,7 +112,7 @@ async def test_existing_player_joins_new_room(
     """Test existing player with score joins new room."""
     # Create existing player
     existing = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=500,
         tier="Enthusiast",
@@ -121,7 +121,7 @@ async def test_existing_player_joins_new_room(
     await score_repo.upsert_player(existing)
     
     result = await use_case.execute(
-        player_id="p1",
+        user_id="p1",
         player_name="Alice",
         connection_id="conn1",
         room_id=None,
@@ -148,20 +148,20 @@ async def test_player_joins_mergeable_room(
 ) -> None:
     """Test player auto-joins existing mergeable room."""
     # Create existing player in room
-    p1 = Player(player_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
+    p1 = Player(user_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
     await score_repo.upsert_player(p1)
     
     room = Room(
         room_id="ROOM-1",
         players=(p1,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
     # New player joins
     result = await use_case.execute(
-        player_id="p2",
+        user_id="p2",
         player_name="Bob",
         connection_id="conn2",
         room_id=None,
@@ -173,14 +173,14 @@ async def test_player_joins_mergeable_room(
     assert result.was_merged is False
     
     # Check broadcasts
-    assert len(broadcaster.broadcast_to_room) == 1
+    assert len(broadcaster.broadcast_to_room_calls) == 1
     assert len(broadcaster.sent_to_connection) == 1
     
     # Check player_joined broadcast
-    broadcast = broadcaster.broadcast_to_room[0]
+    broadcast = broadcaster.broadcast_to_room_calls[0]
     assert broadcast["room_id"] == "ROOM-1"
     assert broadcast["message"]["type"] == "player_joined"
-    assert broadcast["message"]["player"]["player_id"] == "p2"
+    assert broadcast["message"]["player"]["user_id"] == "p2"
     assert broadcast["exclude_connection_id"] == "conn2"
 
 
@@ -194,20 +194,20 @@ async def test_player_joins_specific_room(
 ) -> None:
     """Test player joins specific room by ID."""
     # Create room
-    p1 = Player(player_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
+    p1 = Player(user_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
     await score_repo.upsert_player(p1)
     
     room = Room(
         room_id="ROOM-123",
         players=(p1,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
     # Join specific room
     result = await use_case.execute(
-        player_id="p2",
+        user_id="p2",
         player_name="Bob",
         connection_id="conn2",
         room_id="ROOM-123",
@@ -224,7 +224,7 @@ async def test_join_nonexistent_room_raises_error(
     """Test joining nonexistent room raises error."""
     with pytest.raises(ValueError, match="Room ROOM-999 not found"):
         await use_case.execute(
-            player_id="p1",
+            user_id="p1",
             player_name="Alice",
             connection_id="conn1",
             room_id="ROOM-999",
@@ -243,7 +243,7 @@ async def test_join_full_room_raises_error(
     players = []
     for i in range(4):
         p = Player(
-            player_id=f"p{i}",
+            user_id=f"p{i}",
             name=f"Player{i}",
             score=0,
             tier="Dummies",
@@ -256,14 +256,14 @@ async def test_join_full_room_raises_error(
         room_id="ROOM-FULL",
         players=tuple(players),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
     # Try to join
     with pytest.raises(ValueError, match="Room ROOM-FULL is full"):
         await use_case.execute(
-            player_id="p5",
+            user_id="p5",
             player_name="Eve",
             connection_id="conn5",
             room_id="ROOM-FULL",
@@ -282,7 +282,7 @@ async def test_skips_non_mergeable_rooms(
     players = []
     for i in range(3):
         p = Player(
-            player_id=f"p{i}",
+            user_id=f"p{i}",
             name=f"Player{i}",
             score=0,
             tier="Dummies",
@@ -295,13 +295,13 @@ async def test_skips_non_mergeable_rooms(
         room_id="ROOM-BUSY",
         players=tuple(players),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
     # New player should create new room
     result = await use_case.execute(
-        player_id="p4",
+        user_id="p4",
         player_name="Dave",
         connection_id="conn4",
         room_id=None,

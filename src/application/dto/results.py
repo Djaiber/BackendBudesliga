@@ -28,4 +28,4 @@ class CloseWindowResult:
 
     window_id: str
     correct_answer: str | int
-    player_deltas: dict[str, int]  # player_id -> points_earned
+    player_deltas: dict[str, int]  # user_id -> points_earned

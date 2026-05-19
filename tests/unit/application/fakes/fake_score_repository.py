@@ -10,40 +10,37 @@ class FakeScoreRepository:
         """Initialize fake repository."""
         self.players: dict[str, Player] = {}
 
-    async def get_player(self, player_id: str) -> Player | None:
+    async def get_player(self, user_id: str) -> Player | None:
         """Get player by ID."""
-        return self.players.get(player_id)
+        return self.players.get(user_id)
 
     async def upsert_player(self, player: Player) -> None:
         """Insert or update player."""
-        self.players[player.player_id] = player
+        self.players[player.user_id] = player
 
-    async def apply_delta(self, player_id: str, delta: ScoreDelta) -> Player:
+    async def apply_delta(self, user_id: str, delta: ScoreDelta) -> Player:
         """Apply score delta to player."""
-        player = self.players.get(player_id)
+        player = self.players.get(user_id)
         if player is None:
-            raise ValueError(f"Player {player_id} not found")
-        
-        # Create updated player
-        new_score = player.score + delta.points_earned
+            raise ValueError(f"Player {user_id} not found")
+
         updated_player = Player(
-            player_id=player.player_id,
+            user_id=player.user_id,
             name=player.name,
-            score=new_score,
+            score=delta.new_score,
             tier=delta.new_tier,
             streak=delta.new_streak,
         )
-        self.players[player_id] = updated_player
+        self.players[user_id] = updated_player
         return updated_player
 
-    async def leaderboard(self, limit: int = 10) -> list[Player]:
-        """Get top players by score."""
-        sorted_players = sorted(
+    async def leaderboard(self, room_id: str) -> list[Player]:
+        """Get players sorted by score descending."""
+        return sorted(
             self.players.values(),
             key=lambda p: p.score,
             reverse=True,
         )
-        return sorted_players[:limit]
 
     def clear(self) -> None:
         """Clear all players."""

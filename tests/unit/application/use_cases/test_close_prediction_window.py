@@ -73,7 +73,7 @@ async def test_close_window_with_exact_prediction(
     """Test closing window with exact prediction awards 100 points."""
     # Setup player
     player = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=0,
         tier="Dummies",
@@ -86,7 +86,7 @@ async def test_close_window_with_exact_prediction(
         room_id="ROOM-1",
         players=(player,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
@@ -94,18 +94,19 @@ async def test_close_window_with_exact_prediction(
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=3,
-        open_at_ms=clock.now_ms(),
-        close_at_ms=clock.now_ms() + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=clock.now_ms(),
+        deadline_ms=clock.now_ms() + 20000,
         status="open",
     )
     await window_repo.save(window)
     
     # Player submits exact prediction immediately
     prediction = Prediction(
-        player_id="p1",
+        window_id="WIN-1",
+        user_id="p1",
         value=3,
         submitted_at_ms=clock.now_ms(),
     )
@@ -116,7 +117,7 @@ async def test_close_window_with_exact_prediction(
     
     # Check result
     assert result.window_id == "WIN-1"
-    assert result.correct_answer == 3
+    assert result.correct_answer == "1"
     assert result.player_deltas["p1"] == 110  # 100 * 1.1 (instant submission)
     
     # Check player updated
@@ -126,7 +127,7 @@ async def test_close_window_with_exact_prediction(
     assert updated_player.streak == 1
     
     # Check broadcasts (close, result, leaderboard)
-    assert len(broadcaster.broadcast_to_room) == 3
+    assert len(broadcaster.broadcast_to_room_calls) == 3
 
 
 @pytest.mark.asyncio
@@ -142,7 +143,7 @@ async def test_close_window_with_ranked_predictions(
     players = []
     for i in range(4):
         p = Player(
-            player_id=f"p{i+1}",
+            user_id=f"p{i+1}",
             name=f"Player{i+1}",
             score=0,
             tier="Dummies",
@@ -155,19 +156,19 @@ async def test_close_window_with_ranked_predictions(
         room_id="ROOM-1",
         players=tuple(players),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
-    # Setup window (correct answer = 5)
+    # Setup window (correct answer = 1, first in options)
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=5,
-        open_at_ms=clock.now_ms(),
-        close_at_ms=clock.now_ms() + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=clock.now_ms(),
+        deadline_ms=clock.now_ms() + 20000,
         status="open",
     )
     await window_repo.save(window)
@@ -175,19 +176,19 @@ async def test_close_window_with_ranked_predictions(
     # Players submit predictions at same time
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p1", value=5, submitted_at_ms=clock.now_ms()),  # Exact
+        Prediction(window_id="WIN-1", user_id="p1", value=1, submitted_at_ms=clock.now_ms()),  # Exact
     )
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p2", value=4, submitted_at_ms=clock.now_ms()),  # Rank 2
+        Prediction(window_id="WIN-1", user_id="p2", value=2, submitted_at_ms=clock.now_ms()),  # Rank 2
     )
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p3", value=3, submitted_at_ms=clock.now_ms()),  # Rank 3
+        Prediction(window_id="WIN-1", user_id="p3", value=3, submitted_at_ms=clock.now_ms()),  # Rank 3
     )
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p4", value=1, submitted_at_ms=clock.now_ms()),  # Rank 4
+        Prediction(window_id="WIN-1", user_id="p4", value=5, submitted_at_ms=clock.now_ms()),  # Rank 4
     )
     
     result = await use_case.execute("WIN-1")
@@ -210,7 +211,7 @@ async def test_close_window_with_no_response_penalty(
     """Test player who doesn't respond gets -10 penalty."""
     # Setup player
     player = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=100,
         tier="Dummies",
@@ -222,7 +223,7 @@ async def test_close_window_with_no_response_penalty(
         room_id="ROOM-1",
         players=(player,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
@@ -230,11 +231,11 @@ async def test_close_window_with_no_response_penalty(
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=3,
-        open_at_ms=clock.now_ms(),
-        close_at_ms=clock.now_ms() + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=clock.now_ms(),
+        deadline_ms=clock.now_ms() + 20000,
         status="open",
     )
     await window_repo.save(window)
@@ -262,7 +263,7 @@ async def test_close_window_with_streak_multiplier(
     """Test streak multiplier stacks with speed multiplier."""
     # Setup player with 3-streak (1.2x multiplier)
     player = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=0,
         tier="Dummies",
@@ -274,7 +275,7 @@ async def test_close_window_with_streak_multiplier(
         room_id="ROOM-1",
         players=(player,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
@@ -282,11 +283,11 @@ async def test_close_window_with_streak_multiplier(
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=3,
-        open_at_ms=clock.now_ms(),
-        close_at_ms=clock.now_ms() + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=clock.now_ms(),
+        deadline_ms=clock.now_ms() + 20000,
         status="open",
     )
     await window_repo.save(window)
@@ -294,7 +295,7 @@ async def test_close_window_with_streak_multiplier(
     # Exact prediction at start
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p1", value=3, submitted_at_ms=clock.now_ms()),
+        Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=clock.now_ms()),
     )
     
     result = await use_case.execute("WIN-1")
@@ -319,7 +320,7 @@ async def test_close_window_with_speed_multiplier_decay(
     """Test speed multiplier decays linearly from 1.1 to 1.0."""
     # Setup player
     player = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=0,
         tier="Dummies",
@@ -331,7 +332,7 @@ async def test_close_window_with_speed_multiplier_decay(
         room_id="ROOM-1",
         players=(player,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
@@ -340,11 +341,11 @@ async def test_close_window_with_speed_multiplier_decay(
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=3,
-        open_at_ms=open_ms,
-        close_at_ms=open_ms + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=open_ms,
+        deadline_ms=open_ms + 20000,
         status="open",
     )
     await window_repo.save(window)
@@ -352,7 +353,7 @@ async def test_close_window_with_speed_multiplier_decay(
     # Submit at deadline (should get 1.0x multiplier)
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p1", value=3, submitted_at_ms=open_ms + 20000),
+        Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=open_ms + 20000),
     )
     
     result = await use_case.execute("WIN-1")
@@ -372,7 +373,7 @@ async def test_close_window_updates_tier(
     """Test closing window updates player tier based on new score."""
     # Setup player near tier boundary
     player = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=390,  # Dummies tier (0-400)
         tier="Dummies",
@@ -384,7 +385,7 @@ async def test_close_window_updates_tier(
         room_id="ROOM-1",
         players=(player,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
@@ -392,11 +393,11 @@ async def test_close_window_updates_tier(
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=3,
-        open_at_ms=clock.now_ms(),
-        close_at_ms=clock.now_ms() + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=clock.now_ms(),
+        deadline_ms=clock.now_ms() + 20000,
         status="open",
     )
     await window_repo.save(window)
@@ -404,7 +405,7 @@ async def test_close_window_updates_tier(
     # Exact prediction (will earn 110 points -> 500 total)
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p1", value=3, submitted_at_ms=clock.now_ms()),
+        Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=clock.now_ms()),
     )
     
     await use_case.execute("WIN-1")
@@ -428,7 +429,7 @@ async def test_close_window_broadcasts_all_messages(
     """Test closing window broadcasts close, result, and leaderboard."""
     # Setup
     player = Player(
-        player_id="p1",
+        user_id="p1",
         name="Alice",
         score=0,
         tier="Dummies",
@@ -440,45 +441,45 @@ async def test_close_window_broadcasts_all_messages(
         room_id="ROOM-1",
         players=(player,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
-        game_type="CORNERS_IN_INTERVAL",
+        game="CORNERS_IN_INTERVAL",
         prompt="How many corners?",
-        correct_answer=3,
-        open_at_ms=clock.now_ms(),
-        close_at_ms=clock.now_ms() + 20000,
+        options=("1", "2", "3", "4", "5"),
+        opened_at_ms=clock.now_ms(),
+        deadline_ms=clock.now_ms() + 20000,
         status="open",
     )
     await window_repo.save(window)
     
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(player_id="p1", value=3, submitted_at_ms=clock.now_ms()),
+        Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=clock.now_ms()),
     )
     
     await use_case.execute("WIN-1")
     
     # Check 3 broadcasts
-    assert len(broadcaster.broadcast_to_room) == 3
+    assert len(broadcaster.broadcast_to_room_calls) == 3
     
     # Check window close message
-    close_msg = broadcaster.broadcast_to_room[0]
+    close_msg = broadcaster.broadcast_to_room_calls[0]
     assert close_msg["message"]["type"] == "prediction_window_close"
     assert close_msg["message"]["window_id"] == "WIN-1"
     
     # Check result message
-    result_msg = broadcaster.broadcast_to_room[1]
+    result_msg = broadcaster.broadcast_to_room_calls[1]
     assert result_msg["message"]["type"] == "prediction_result"
-    assert result_msg["message"]["correct_answer"] == 3
+    assert result_msg["message"]["correct_answer"] == "1"
     assert len(result_msg["message"]["results"]) == 1
     
     # Check leaderboard message
-    leaderboard_msg = broadcaster.broadcast_to_room[2]
+    leaderboard_msg = broadcaster.broadcast_to_room_calls[2]
     assert leaderboard_msg["message"]["type"] == "leaderboard_update"
     assert len(leaderboard_msg["message"]["leaderboard"]) == 1
 

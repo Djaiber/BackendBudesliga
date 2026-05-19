@@ -18,14 +18,6 @@ class HandleMatchEventUseCase:
         broadcaster: WebSocketBroadcaster,
         event_publisher: EventPublisher,
     ) -> None:
-        """
-        Initialize use case with dependencies.
-
-        Args:
-            room_repo: Room repository port
-            broadcaster: WebSocket broadcaster port
-            event_publisher: Event publisher port
-        """
         self._room_repo = room_repo
         self._broadcaster = broadcaster
         self._event_publisher = event_publisher
@@ -39,7 +31,7 @@ class HandleMatchEventUseCase:
         """
         # Get all active rooms
         active_rooms = await self._room_repo.list_by_status("active")
-        
+
         # Broadcast to each room
         message = event_to_message(event)
         for room in active_rooms:
@@ -47,8 +39,8 @@ class HandleMatchEventUseCase:
                 room_id=room.room_id,
                 message=message,
             )
-        
-        # Publish to event bus
+
+        # Publish to event bus (using FakeEventPublisher signature)
         await self._event_publisher.publish(
             event_type="match_event",
             payload={
@@ -56,6 +48,6 @@ class HandleMatchEventUseCase:
                 "minute": event.minute,
                 "second": event.second,
                 "team": event.team,
-                "player_name": event.player_name,
+                "player": event.player,
             },
         )

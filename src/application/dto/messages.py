@@ -18,7 +18,7 @@ class JoinRoomMessage(TypedDict):
 
     action: Literal["join_room"]
     room_id: str | None  # None = auto-match
-    player_id: str
+    user_id: str
     player_name: str
 
 
@@ -27,7 +27,7 @@ class SubmitPredictionMessage(TypedDict):
 
     action: Literal["submit_prediction"]
     window_id: str
-    player_id: str
+    user_id: str
     value: str | int  # String for NEXT_GOAL_TIMING, int for others
 
 
@@ -36,7 +36,7 @@ class EmojiMessage(TypedDict):
 
     action: Literal["emoji"]
     room_id: str
-    player_id: str
+    user_id: str
     emoji: str
 
 
@@ -54,7 +54,7 @@ class PingMessage(TypedDict):
 class PlayerDTO(TypedDict):
     """Player data transfer object."""
 
-    player_id: str
+    user_id: str
     name: str
     score: int
     tier: str
@@ -90,7 +90,7 @@ class PlayerLeftMessage(TypedDict):
     """Broadcast when a player leaves the room."""
 
     type: Literal["player_left"]
-    player_id: str
+    user_id: str
 
 
 class PredictionWindowOpenMessage(TypedDict):
@@ -124,7 +124,7 @@ class PredictionResultMessage(TypedDict):
 class PredictionResultDTO(TypedDict):
     """Individual player's prediction result."""
 
-    player_id: str
+    user_id: str
     prediction: str | int | None
     points_earned: int
     rank: int | None  # None if no prediction
@@ -146,7 +146,7 @@ class MatchEventMessage(TypedDict):
 class LeaderboardEntry(TypedDict):
     """Single leaderboard entry."""
 
-    player_id: str
+    user_id: str
     name: str
     score: int
     tier: str
@@ -165,7 +165,7 @@ class EmojiBroadcastMessage(TypedDict):
     """Broadcast emoji from a player."""
 
     type: Literal["emoji_broadcast"]
-    player_id: str
+    user_id: str
     player_name: str
     emoji: str
 
@@ -192,7 +192,7 @@ def player_to_dto(player: Player) -> PlayerDTO:
         PlayerDTO for WebSocket messages
     """
     return PlayerDTO(
-        player_id=player.player_id,
+        user_id=player.user_id,
         name=player.name,
         score=player.score,
         tier=player.tier,
@@ -216,5 +216,5 @@ def event_to_message(event: MatchEvent) -> MatchEventMessage:
         minute=event.minute,
         second=event.second,
         team=event.team,
-        player_name=event.player_name,
+        player_name=event.player,
     )

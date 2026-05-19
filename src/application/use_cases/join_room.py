@@ -46,10 +46,11 @@ class JoinRoomUseCase:
         self._broadcaster = broadcaster
         self._id_gen = id_gen
         self._clock = clock
+        self._matchmaker = MatchmakerService()
 
     async def execute(
         self,
-        player_id: str,
+        user_id: str,
         player_name: str,
         connection_id: str,
         room_id: str | None = None,
@@ -58,7 +59,7 @@ class JoinRoomUseCase:
         Execute join room use case.
 
         Args:
-            player_id: Unique player identifier
+            user_id: Unique player identifier
             player_name: Player display name
             connection_id: WebSocket connection ID
             room_id: Optional specific room to join (None = auto-match)
@@ -67,11 +68,12 @@ class JoinRoomUseCase:
             JoinRoomResult with room, player, and merge status
         """
         # Get or create player
-        player = await self._score_repo.get_player(player_id)
+        player = await self._score_repo.get_player(user_id)
         if player is None:
-            tier = TierService.calculate_tier(0)
+            tier_service = TierService()
+            tier = tier_service.get_tier(0)
             player = Player(
-                player_id=player_id,
+                user_id=user_id,
                 name=player_name,
                 score=0,
                 tier=tier,
@@ -85,7 +87,7 @@ class JoinRoomUseCase:
             room = await self._room_repo.get(room_id)
             if room is None:
                 raise ValueError(f"Room {room_id} not found")
-            if not MatchmakerService.can_join(room, 1):
+            if not self._matchmaker.can_join(room):
                 raise ValueError(f"Room {room_id} is full")
             
             await self._room_repo.add_player(room_id, player)
@@ -155,7 +157,7 @@ class JoinRoomUseCase:
             room_id=new_room_id,
             players=(player,),
             status="active",
-            created_at_ms=self._clock.now_ms(),
+            created_at=self._clock.now_ms(),
         )
         await self._room_repo.save(new_room)
         

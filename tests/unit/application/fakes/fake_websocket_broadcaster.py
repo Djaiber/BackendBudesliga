@@ -9,7 +9,7 @@ class FakeWebSocketBroadcaster:
     def __init__(self) -> None:
         """Initialize fake broadcaster."""
         self.sent_to_connection: list[dict[str, Any]] = []
-        self.broadcast_to_room: list[dict[str, Any]] = []
+        self.broadcast_to_room_calls: list[dict[str, Any]] = []
 
     async def send_to_connection(
         self,
@@ -42,7 +42,7 @@ class FakeWebSocketBroadcaster:
             message: Message to broadcast
             exclude_connection_id: Optional connection to exclude
         """
-        self.broadcast_to_room.append({
+        self.broadcast_to_room_calls.append({
             "room_id": room_id,
             "message": message,
             "exclude_connection_id": exclude_connection_id,
@@ -51,4 +51,4 @@ class FakeWebSocketBroadcaster:
     def clear(self) -> None:
         """Clear captured messages."""
         self.sent_to_connection.clear()
-        self.broadcast_to_room.clear()
+        self.broadcast_to_room_calls.clear()

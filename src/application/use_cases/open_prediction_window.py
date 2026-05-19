@@ -31,21 +31,12 @@ class OpenPredictionWindowUseCase:
         id_gen: IdGenerator,
         clock: Clock,
     ) -> None:
-        """
-        Initialize use case with dependencies.
-
-        Args:
-            window_repo: Window repository port
-            broadcaster: WebSocket broadcaster port
-            ai_gen: AI generator port
-            id_gen: ID generator port
-            clock: Clock port
-        """
         self._window_repo = window_repo
         self._broadcaster = broadcaster
         self._ai_gen = ai_gen
         self._id_gen = id_gen
         self._clock = clock
+        self._game_engine = GameEngineService()
 
     async def execute(
         self,
@@ -64,10 +55,12 @@ class OpenPredictionWindowUseCase:
         Returns:
             Created PredictionWindow
         """
-        # Select game type based on recent events
-        game_type = GameEngineService.select_game(recent_events)
-        
-        # Generate prompt
+        now_ms = self._clock.now_ms()
+
+        # Select game type based on recent events (instance method)
+        game = self._game_engine.select_game(recent_events, now_ms)
+
+        # Build context for AI
         context: dict[str, Any] = {
             "recent_events": [
                 {
@@ -79,34 +72,33 @@ class OpenPredictionWindowUseCase:
                 for e in recent_events
             ],
         }
-        prompt = await self._ai_gen.generate_prompt(game_type, context)
-        
+        prompt = await self._ai_gen.generate_prompt(game, context)
+
         # Create window
-        now_ms = self._clock.now_ms()
         window_id = self._id_gen.new_id("WIN")
         window = PredictionWindow(
             window_id=window_id,
             room_id=room_id,
-            game_type=game_type,
+            game=game,
             prompt=prompt,
-            correct_answer=correct_answer,
-            open_at_ms=now_ms,
-            close_at_ms=now_ms + WINDOW_DURATION_MS,
+            opened_at_ms=now_ms,
+            deadline_ms=now_ms + WINDOW_DURATION_MS,
+            options=None,
             status="open",
         )
         await self._window_repo.save(window)
-        
+
         # Broadcast to room
         await self._broadcaster.broadcast_to_room(
             room_id=room_id,
             message={
                 "type": "prediction_window_open",
                 "window_id": window_id,
-                "game_type": game_type,
+                "game": game,
                 "prompt": prompt,
-                "open_at_ms": now_ms,
-                "close_at_ms": now_ms + WINDOW_DURATION_MS,
+                "opened_at_ms": now_ms,
+                "deadline_ms": now_ms + WINDOW_DURATION_MS,
             },
         )
-        
+
         return window

@@ -52,20 +52,20 @@ async def test_merge_two_small_rooms(
 ) -> None:
     """Test merging two rooms with <3 players each."""
     # Create two small rooms
-    p1 = Player(player_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
-    p2 = Player(player_id="p2", name="Bob", score=0, tier="Dummies", streak=0)
+    p1 = Player(user_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
+    p2 = Player(user_id="p2", name="Bob", score=0, tier="Dummies", streak=0)
     
     room1 = Room(
         room_id="ROOM-1",
         players=(p1,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     room2 = Room(
         room_id="ROOM-2",
         players=(p2,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room1)
     await room_repo.save(room2)
@@ -80,17 +80,17 @@ async def test_merge_two_small_rooms(
     merged_room = await room_repo.get("ROOM-1")
     assert merged_room is not None
     assert len(merged_room.players) == 2
-    assert {p.player_id for p in merged_room.players} == {"p1", "p2"}
+    assert {p.user_id for p in merged_room.players} == {"p1", "p2"}
     
     # Check room2 deleted
     deleted_room = await room_repo.get("ROOM-2")
     assert deleted_room is None
     
     # Check broadcasts (2 messages: one to each room)
-    assert len(broadcaster.broadcast_to_room) == 2
+    assert len(broadcaster.broadcast_to_room_calls) == 2
     
     # Check message format
-    msg = broadcaster.broadcast_to_room[0]["message"]
+    msg = broadcaster.broadcast_to_room_calls[0]["message"]
     assert msg["type"] == "room_merged"
     assert msg["old_room_id"] == "ROOM-2"
     assert msg["new_room_id"] == "ROOM-1"
@@ -106,7 +106,7 @@ async def test_merge_multiple_pairs(
     """Test merging multiple pairs of rooms."""
     # Create 4 small rooms
     players = [
-        Player(player_id=f"p{i}", name=f"Player{i}", score=0, tier="Dummies", streak=0)
+        Player(user_id=f"p{i}", name=f"Player{i}", score=0, tier="Dummies", streak=0)
         for i in range(4)
     ]
     
@@ -115,7 +115,7 @@ async def test_merge_multiple_pairs(
             room_id=f"ROOM-{i+1}",
             players=(player,),
             status="active",
-            created_at_ms=clock.now_ms(),
+            created_at=clock.now_ms(),
         )
         await room_repo.save(room)
     
@@ -147,22 +147,22 @@ async def test_no_merge_when_combined_exceeds_limit(
     """Test rooms not merged if combined players exceed 4."""
     # Create two rooms with 2 players each (total would be 4, which is OK)
     # But create one with 3 players (not mergeable)
-    p1 = Player(player_id="p1", name="P1", score=0, tier="Dummies", streak=0)
-    p2 = Player(player_id="p2", name="P2", score=0, tier="Dummies", streak=0)
-    p3 = Player(player_id="p3", name="P3", score=0, tier="Dummies", streak=0)
-    p4 = Player(player_id="p4", name="P4", score=0, tier="Dummies", streak=0)
+    p1 = Player(user_id="p1", name="P1", score=0, tier="Dummies", streak=0)
+    p2 = Player(user_id="p2", name="P2", score=0, tier="Dummies", streak=0)
+    p3 = Player(user_id="p3", name="P3", score=0, tier="Dummies", streak=0)
+    p4 = Player(user_id="p4", name="P4", score=0, tier="Dummies", streak=0)
     
     room1 = Room(
         room_id="ROOM-1",
         players=(p1, p2, p3),  # 3 players - not mergeable
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     room2 = Room(
         room_id="ROOM-2",
         players=(p4,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room1)
     await room_repo.save(room2)
@@ -187,11 +187,11 @@ async def test_no_merge_when_no_mergeable_rooms(
     """Test no merge when all rooms have 3+ players."""
     # Create rooms with 3+ players
     players1 = [
-        Player(player_id=f"p{i}", name=f"P{i}", score=0, tier="Dummies", streak=0)
+        Player(user_id=f"p{i}", name=f"P{i}", score=0, tier="Dummies", streak=0)
         for i in range(3)
     ]
     players2 = [
-        Player(player_id=f"p{i+3}", name=f"P{i+3}", score=0, tier="Dummies", streak=0)
+        Player(user_id=f"p{i+3}", name=f"P{i+3}", score=0, tier="Dummies", streak=0)
         for i in range(4)
     ]
     
@@ -199,13 +199,13 @@ async def test_no_merge_when_no_mergeable_rooms(
         room_id="ROOM-1",
         players=tuple(players1),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     room2 = Room(
         room_id="ROOM-2",
         players=tuple(players2),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room1)
     await room_repo.save(room2)
@@ -224,13 +224,13 @@ async def test_no_merge_when_only_one_room(
     clock: FakeClock,
 ) -> None:
     """Test no merge when only one room exists."""
-    p1 = Player(player_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
+    p1 = Player(user_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
     
     room = Room(
         room_id="ROOM-1",
         players=(p1,),
         status="active",
-        created_at_ms=clock.now_ms(),
+        created_at=clock.now_ms(),
     )
     await room_repo.save(room)
     
@@ -251,20 +251,20 @@ async def test_merge_preserves_room1_metadata(
     clock: FakeClock,
 ) -> None:
     """Test merge preserves first room's ID and created_at."""
-    p1 = Player(player_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
-    p2 = Player(player_id="p2", name="Bob", score=0, tier="Dummies", streak=0)
+    p1 = Player(user_id="p1", name="Alice", score=0, tier="Dummies", streak=0)
+    p2 = Player(user_id="p2", name="Bob", score=0, tier="Dummies", streak=0)
     
     room1 = Room(
         room_id="ROOM-FIRST",
         players=(p1,),
         status="active",
-        created_at_ms=1000000,
+        created_at=1000000,
     )
     room2 = Room(
         room_id="ROOM-SECOND",
         players=(p2,),
         status="active",
-        created_at_ms=2000000,
+        created_at=2000000,
     )
     await room_repo.save(room1)
     await room_repo.save(room2)
@@ -275,5 +275,5 @@ async def test_merge_preserves_room1_metadata(
     merged = await room_repo.get("ROOM-FIRST")
     assert merged is not None
     assert merged.room_id == "ROOM-FIRST"
-    assert merged.created_at_ms == 1000000
+    assert merged.created_at == 1000000
     assert merged.status == "active"

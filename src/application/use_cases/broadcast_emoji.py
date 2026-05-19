@@ -32,7 +32,7 @@ class BroadcastEmojiUseCase:
     async def execute(
         self,
         room_id: str,
-        player_id: str,
+        user_id: str,
         emoji: str,
     ) -> None:
         """
@@ -40,7 +40,7 @@ class BroadcastEmojiUseCase:
 
         Args:
             room_id: Room to broadcast to
-            player_id: Player sending emoji
+            user_id: Player sending emoji
             emoji: Emoji to broadcast
 
         Raises:
@@ -56,21 +56,21 @@ class BroadcastEmojiUseCase:
             raise ValueError(f"Room {room_id} not found")
         
         # Check player in room
-        player_in_room = any(p.player_id == player_id for p in room.players)
+        player_in_room = any(p.user_id == user_id for p in room.players)
         if not player_in_room:
-            raise ValueError(f"Player {player_id} not in room {room_id}")
+            raise ValueError(f"Player {user_id} not in room {room_id}")
         
         # Get player name
-        player = await self._score_repo.get_player(player_id)
+        player = await self._score_repo.get_player(user_id)
         if player is None:
-            raise ValueError(f"Player {player_id} not found")
+            raise ValueError(f"Player {user_id} not found")
         
         # Broadcast emoji
         await self._broadcaster.broadcast_to_room(
             room_id=room_id,
             message={
                 "type": "emoji_broadcast",
-                "player_id": player_id,
+                "user_id": user_id,
                 "player_name": player.name,
                 "emoji": emoji,
             },

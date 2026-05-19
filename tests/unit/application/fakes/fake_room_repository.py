@@ -34,22 +34,22 @@ class FakeRoomRepository:
             room_id=room.room_id,
             players=tuple(new_players),
             status=room.status,
-            created_at_ms=room.created_at_ms,
+            created_at=room.created_at,
         )
 
-    async def remove_player(self, room_id: str, player_id: str) -> None:
+    async def remove_player(self, room_id: str, user_id: str) -> None:
         """Remove player from room."""
         room = self.rooms.get(room_id)
         if room is None:
             raise ValueError(f"Room {room_id} not found")
         
         # Create new room without the player
-        new_players = [p for p in room.players if p.player_id != player_id]
+        new_players = [p for p in room.players if p.user_id != user_id]
         self.rooms[room_id] = Room(
             room_id=room.room_id,
             players=tuple(new_players),
             status=room.status,
-            created_at_ms=room.created_at_ms,
+            created_at=room.created_at,
         )
 
     async def delete(self, room_id: str) -> None:

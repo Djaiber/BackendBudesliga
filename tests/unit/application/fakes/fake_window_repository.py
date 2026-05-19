@@ -46,13 +46,12 @@ class FakeWindowRepository:
         self.windows[window_id] = PredictionWindow(
             window_id=window.window_id,
             room_id=window.room_id,
-            game_type=window.game_type,
+            game=window.game,
             prompt=window.prompt,
-            correct_answer=window.correct_answer,
-            open_at_ms=window.open_at_ms,
-            close_at_ms=window.close_at_ms,
+            opened_at_ms=window.opened_at_ms,
+            deadline_ms=window.deadline_ms,
+            options=window.options,
             status="closed",
-            closed_at_ms=now_ms,
         )
 
     def clear(self) -> None:

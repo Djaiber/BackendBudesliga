@@ -327,7 +327,7 @@ When Phase 4 is complete:
 
 ## Notes
 
-- **Phase 3 Signature Issues**: Phase 3 tests have entity signature mismatches (documented in PHASE3_STATUS.md). These should be fixed before Phase 5, but don't block Phase 4 infrastructure work.
+- **Phase 3 Complete**: ✅ All Phase 3 tests passing (43 tests). Entity signature mismatches have been fixed. Phase 3 is production-ready.
 - **Testing Approach Changed**: Initially tried moto with aioboto3 but encountered async incompatibility. Switched to unittest.mock for all repository tests - works perfectly and is faster.
 - **Moto Limitations**: ApiGatewayManagementApi not well-mocked by moto - use unittest.mock.patch for WebSocket broadcaster tests.
 - **Bedrock Testing**: Patch boto3 client, assert request body shape, return fixed JSON responses.
