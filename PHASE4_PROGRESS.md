@@ -1,10 +1,10 @@
 # Phase 4 Progress: Infrastructure Adapters
 
-## Status: IN PROGRESS (Deliverables 1-10 Complete)
+## Status: IN PROGRESS (Deliverables 1-11 Complete)
 
 Phase 4 implements AWS-backed adapters for all domain ports. This document tracks progress through the 17-step deliverable sequence.
 
-**Latest Update**: Deliverable 10 complete - S3 Replay Loader. Total: 246 tests passing (151 unit + 95 integration).
+**Latest Update**: Deliverable 11 complete - WebSocket Broadcaster. Total: 258 tests passing (151 unit + 107 integration).
 
 ## Completed ✅
 
@@ -153,14 +153,19 @@ Updated `pyproject.toml`:
   - Support for endpoint override (localstack)
 - **Coverage**: 97%
 
-## Next Steps (Remaining 7 deliverables)
-
-### 11. WebSocket Broadcaster
+### 11. WebSocket Broadcaster ✅
 - **File**: `src/infrastructure/websocket/api_gateway_broadcaster.py`
-- **Tests**: `tests/integration/websocket/test_api_gateway_broadcaster.py`
+- **Tests**: `tests/integration/websocket/test_api_gateway_broadcaster.py` (12 tests, all passing)
 - **Implements**: `WebSocketBroadcaster` port
-- **Uses**: ApiGatewayManagementApi `post_to_connection`
-- **Features**: Handle 410 GoneException, parallel broadcasts
+- **Features**:
+  - Sends messages to WebSocket connections via API Gateway Management API
+  - Broadcasts to all connections in a room (parallel sends)
+  - Handles 410 GoneException for stale connections (auto-deletes)
+  - Continues broadcasting even if individual sends fail
+  - Uses ConnectionRepositoryDDB to query connections by room
+- **Coverage**: 100%
+
+## Next Steps (Remaining 6 deliverables)
 
 ### 12. Prompt Cache
 - **File**: `src/infrastructure/ai/prompt_cache.py`
@@ -269,6 +274,10 @@ pytest tests/integration/eventbridge/ -v
 pytest tests/integration/s3/ -v
 # ✅ 13 passed in 0.66s (97% coverage)
 
+# WebSocket Broadcaster tests
+pytest tests/integration/websocket/ -v
+# ✅ 12 passed in 0.73s (100% coverage)
+
 # Clock tests
 pytest tests/unit/infrastructure/clock/ -v
 # ✅ 4 passed in 0.10s (100% coverage)
@@ -279,8 +288,8 @@ pytest tests/unit/infrastructure/id_generator/ -v
 
 # All tests (Phase 2 + Phase 3 + Phase 4)
 pytest tests/ -v
-# ✅ 246 passed in 1.08s (99% coverage)
-# Breakdown: 151 unit + 95 integration
+# ✅ 258 passed in 1.27s (99% coverage)
+# Breakdown: 151 unit + 107 integration
 ```
 
 ## File Structure (Current)
@@ -306,9 +315,12 @@ src/infrastructure/
 ├── eventbridge/
 │   ├── __init__.py
 │   └── eventbridge_publisher.py ✅
-└── s3/
+├── s3/
+│   ├── __init__.py
+│   └── replay_loader.py ✅
+└── websocket/
     ├── __init__.py
-    └── replay_loader.py ✅
+    └── api_gateway_broadcaster.py ✅
 
 tests/integration/
 ├── __init__.py
@@ -324,9 +336,12 @@ tests/integration/
 ├── eventbridge/
 │   ├── __init__.py
 │   └── test_eventbridge_publisher.py ✅ (7 tests)
-└── s3/
+├── s3/
+│   ├── __init__.py
+│   └── test_replay_loader.py ✅ (13 tests)
+└── websocket/
     ├── __init__.py
-    └── test_replay_loader.py ✅ (13 tests)
+    └── test_api_gateway_broadcaster.py ✅ (12 tests)
 
 tests/unit/infrastructure/
 ├── __init__.py
@@ -340,7 +355,6 @@ tests/unit/infrastructure/
 
 ## Estimated Remaining Effort
 
-- **WebSocket Broadcaster** (deliverable 11): ~45 minutes
 - **Prompt Cache + Bedrock Generator** (deliverables 12-13): ~1.5 hours
 - **Replay Engine** (deliverable 14): ~1 hour
 - **Cognito Validator** (deliverable 15): ~1 hour
@@ -369,5 +383,5 @@ When Phase 4 is complete:
 ## Next Commit
 
 Will include:
-- WebSocket Broadcaster (deliverable 11) - API Gateway WebSocket broadcasting
+- Prompt Cache + Bedrock Generator (deliverables 12-13) - AI prompt generation with caching
 - Progress toward remaining deliverables
