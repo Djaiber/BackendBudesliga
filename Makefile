@@ -38,7 +38,7 @@ convert-xml: ## Convert XML datasets to JSON
 	python scripts/convert_xml_to_json.py
 
 run-local-replay: ## Run replay engine locally (no AWS)
-	python scripts/run_local_replay.py
+	python scripts/run_local_replay.py --speed 600
 
 upload-replay: ## Upload replay data to S3
 	./scripts/upload_to_s3.sh

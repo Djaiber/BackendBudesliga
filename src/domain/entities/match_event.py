@@ -44,6 +44,7 @@ class MatchEvent:
         "CROSS",
         "PLAY",
         "EVENT",
+        "OTHER",
     }
 
     def __post_init__(self) -> None:

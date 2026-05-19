@@ -14,11 +14,8 @@ Outputs to scripts/output/:
 """
 
 import json
-import os
-import re
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -194,16 +191,16 @@ def parse_events_xml(xml_path: Path) -> list[MatchEvent]:
 
     try:
         # Read file and skip any comment lines at the beginning
-        with open(xml_path, "r", encoding="utf-8") as f:
+        with open(xml_path, encoding="utf-8") as f:
             content = f.read()
             # Remove leading comment lines
             lines = content.split("\n")
             xml_start = 0
             for i, line in enumerate(lines):
-                if line.strip().startswith("<?xml") or line.strip().startswith("<"):
-                    if not line.strip().startswith("<!--"):
-                        xml_start = i
-                        break
+                stripped = line.strip()
+                if (stripped.startswith("<?xml") or stripped.startswith("<")) and not stripped.startswith("<!--"):
+                    xml_start = i
+                    break
             content = "\n".join(lines[xml_start:])
 
         # Parse from string
@@ -212,7 +209,7 @@ def parse_events_xml(xml_path: Path) -> list[MatchEvent]:
         xml_file = StringIO(content)
         context = ET.iterparse(xml_file, events=("end",))
 
-        for event_type, elem in context:
+        for _event_type, elem in context:
             if elem.tag != "Event":
                 continue
 
@@ -385,16 +382,16 @@ def parse_kpi_xml(xml_path: Path) -> dict[int, dict[str, Any]]:
 
     try:
         # Read file and skip any comment lines at the beginning
-        with open(xml_path, "r", encoding="utf-8") as f:
+        with open(xml_path, encoding="utf-8") as f:
             content = f.read()
             # Remove leading comment lines
             lines = content.split("\n")
             xml_start = 0
             for i, line in enumerate(lines):
-                if line.strip().startswith("<?xml") or line.strip().startswith("<"):
-                    if not line.strip().startswith("<!--"):
-                        xml_start = i
-                        break
+                stripped = line.strip()
+                if (stripped.startswith("<?xml") or stripped.startswith("<")) and not stripped.startswith("<!--"):
+                    xml_start = i
+                    break
             content = "\n".join(lines[xml_start:])
 
         from io import StringIO

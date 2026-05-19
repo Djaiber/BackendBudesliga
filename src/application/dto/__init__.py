@@ -7,6 +7,7 @@ from .messages import (
     JoinRoomMessage,
     LeaderboardUpdateMessage,
     MatchEventMessage,
+    MatchInfo,
     PingMessage,
     PlayerJoinedMessage,
     PlayerLeftMessage,
@@ -46,6 +47,7 @@ __all__ = [
     "player_to_dto",
     "event_to_message",
     "ALLOWED_EMOJIS",
+    "MatchInfo",
     # Results
     "JoinRoomResult",
     "SubmitPredictionResult",

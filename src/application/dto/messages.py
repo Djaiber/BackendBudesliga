@@ -8,6 +8,16 @@ from ...domain.entities import MatchEvent, Player
 ALLOWED_EMOJIS = {"🔥", "👏", "😂", "😱", "🎯", "⚽"}
 
 
+class MatchInfo(TypedDict):
+    """Parsed match metadata from MatchInformations_Anonym.xml."""
+
+    match_id: str
+    team_a: str
+    team_b: str
+    kickoff_iso: str
+    lineups: dict[str, list[str]]
+
+
 # ============================================================================
 # INCOMING MESSAGES (from client)
 # ============================================================================
