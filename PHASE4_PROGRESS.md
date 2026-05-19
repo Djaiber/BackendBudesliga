@@ -1,10 +1,10 @@
 # Phase 4 Progress: Infrastructure Adapters
 
-## Status: IN PROGRESS (Deliverables 1-8 Complete)
+## Status: IN PROGRESS (Deliverables 1-10 Complete)
 
 Phase 4 implements AWS-backed adapters for all domain ports. This document tracks progress through the 17-step deliverable sequence.
 
-**Latest Update**: Deliverables 7-8 complete - Connection repository + Clock/ID generator adapters. Total: 74 tests passing (64 integration + 10 unit).
+**Latest Update**: Deliverable 10 complete - S3 Replay Loader. Total: 246 tests passing (151 unit + 95 integration).
 
 ## Completed ✅
 
@@ -128,19 +128,32 @@ Updated `pyproject.toml`:
   - Pure unit tests, no AWS dependencies
 - **Coverage**: 100%
 
-## Next Steps (Remaining 9 deliverables)
-
-### 9. EventBridge Publisher
+### 9. EventBridge Publisher ✅
 - **File**: `src/infrastructure/eventbridge/eventbridge_publisher.py`
-- **Tests**: `tests/integration/eventbridge/test_eventbridge_publisher.py`
+- **Tests**: `tests/integration/eventbridge/test_eventbridge_publisher.py` (7 tests, all passing)
 - **Implements**: `EventPublisher` port
-- **Uses**: boto3 EventBridge `put_events`
+- **Features**:
+  - Publishes domain events to AWS EventBridge using PutEvents API
+  - JSON serialization of event details
+  - Error handling for failed entries
+  - Support for endpoint override (localstack)
+  - Async context manager for client lifecycle
+- **Coverage**: 96%
 
-### 10. S3 Replay Loader
+### 10. S3 Replay Loader ✅
 - **File**: `src/infrastructure/s3/replay_loader.py`
-- **Tests**: `tests/integration/s3/test_replay_loader.py`
+- **Tests**: `tests/integration/s3/test_replay_loader.py` (13 tests, all passing)
 - **Purpose**: Load match events from S3 JSON files
-- **Features**: Caching for Lambda cold-start reuse
+- **Features**:
+  - Loads events from S3 and converts to MatchEvent entities
+  - In-memory caching for Lambda cold-start reuse (configurable)
+  - Loads match info metadata
+  - Skips invalid events with warnings
+  - Error handling for S3 failures
+  - Support for endpoint override (localstack)
+- **Coverage**: 97%
+
+## Next Steps (Remaining 7 deliverables)
 
 ### 11. WebSocket Broadcaster
 - **File**: `src/infrastructure/websocket/api_gateway_broadcaster.py`
@@ -248,6 +261,14 @@ pytest tests/integration/dynamodb/test_connection_repository_ddb.py -v
 pytest tests/integration/dynamodb/ -v
 # ✅ 64 passed in 0.70s
 
+# EventBridge Publisher tests
+pytest tests/integration/eventbridge/ -v
+# ✅ 7 passed in 0.67s (96% coverage)
+
+# S3 Replay Loader tests
+pytest tests/integration/s3/ -v
+# ✅ 13 passed in 0.66s (97% coverage)
+
 # Clock tests
 pytest tests/unit/infrastructure/clock/ -v
 # ✅ 4 passed in 0.10s (100% coverage)
@@ -256,8 +277,10 @@ pytest tests/unit/infrastructure/clock/ -v
 pytest tests/unit/infrastructure/id_generator/ -v
 # ✅ 6 passed in 0.05s (100% coverage)
 
-# Total so far
-# ✅ 74 tests passing (64 integration + 10 unit)
+# All tests (Phase 2 + Phase 3 + Phase 4)
+pytest tests/ -v
+# ✅ 246 passed in 1.08s (99% coverage)
+# Breakdown: 151 unit + 95 integration
 ```
 
 ## File Structure (Current)
@@ -272,26 +295,38 @@ src/infrastructure/
 ├── id_generator/
 │   ├── __init__.py
 │   └── uuid_id_generator.py ✅
-└── dynamodb/
+├── dynamodb/
+│   ├── __init__.py
+│   ├── schema.py ✅
+│   ├── client.py ✅
+│   ├── room_repository_ddb.py ✅
+│   ├── score_repository_ddb.py ✅
+│   ├── window_repository_ddb.py ✅
+│   └── connection_repository_ddb.py ✅
+├── eventbridge/
+│   ├── __init__.py
+│   └── eventbridge_publisher.py ✅
+└── s3/
     ├── __init__.py
-    ├── schema.py ✅
-    ├── client.py ✅
-    ├── room_repository_ddb.py ✅
-    ├── score_repository_ddb.py ✅
-    ├── window_repository_ddb.py ✅
-    └── connection_repository_ddb.py ✅
+    └── replay_loader.py ✅
 
 tests/integration/
 ├── __init__.py
 ├── test_config.py ✅ (11 tests)
-└── dynamodb/
+├── dynamodb/
+│   ├── __init__.py
+│   ├── test_schema.py ✅ (17 tests)
+│   ├── test_client.py ✅ (4 tests)
+│   ├── test_room_repository_ddb.py ✅ (11 tests)
+│   ├── test_score_repository_ddb.py ✅ (9 tests)
+│   ├── test_window_repository_ddb.py ✅ (12 tests)
+│   └── test_connection_repository_ddb.py ✅ (11 tests)
+├── eventbridge/
+│   ├── __init__.py
+│   └── test_eventbridge_publisher.py ✅ (7 tests)
+└── s3/
     ├── __init__.py
-    ├── test_schema.py ✅ (17 tests)
-    ├── test_client.py ✅ (4 tests)
-    ├── test_room_repository_ddb.py ✅ (11 tests)
-    ├── test_score_repository_ddb.py ✅ (9 tests)
-    ├── test_window_repository_ddb.py ✅ (12 tests)
-    └── test_connection_repository_ddb.py ✅ (11 tests)
+    └── test_replay_loader.py ✅ (13 tests)
 
 tests/unit/infrastructure/
 ├── __init__.py
@@ -305,15 +340,13 @@ tests/unit/infrastructure/
 
 ## Estimated Remaining Effort
 
-- **EventBridge Publisher** (deliverable 9): ~30 minutes
-- **S3 Replay Loader** (deliverable 10): ~45 minutes
 - **WebSocket Broadcaster** (deliverable 11): ~45 minutes
 - **Prompt Cache + Bedrock Generator** (deliverables 12-13): ~1.5 hours
 - **Replay Engine** (deliverable 14): ~1 hour
 - **Cognito Validator** (deliverable 15): ~1 hour
 - **Smoke Tests** (deliverable 16): ~1 hour
 - **Integration & Debugging** (deliverable 17): ~1 hour
-- **Total**: ~6-7 hours
+- **Total**: ~5.5 hours
 
 ## Success Criteria
 
@@ -336,5 +369,5 @@ When Phase 4 is complete:
 ## Next Commit
 
 Will include:
-- EventBridge Publisher (deliverable 9) - event publishing to AWS EventBridge
+- WebSocket Broadcaster (deliverable 11) - API Gateway WebSocket broadcasting
 - Progress toward remaining deliverables
