@@ -64,10 +64,10 @@ class ConnectionRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Calculate TTL (epoch seconds)
             ttl = (connected_at_ms // 1000) + self._ttl_seconds
-            
+
             await table.put_item(
                 Item={
                     "PK": schema.conn_pk(conn_id),
@@ -94,18 +94,18 @@ class ConnectionRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             response = await table.get_item(
                 Key={
                     "PK": schema.conn_pk(conn_id),
                     "SK": schema.conn_meta_sk(),
                 }
             )
-            
+
             item = response.get("Item")
             if not item:
                 return None
-            
+
             return {
                 "conn_id": item["conn_id"],
                 "user_id": item["user_id"],
@@ -122,7 +122,7 @@ class ConnectionRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             await table.delete_item(
                 Key={
                     "PK": schema.conn_pk(conn_id),
@@ -142,23 +142,25 @@ class ConnectionRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             response = await table.query(
                 IndexName="GSI1",
                 KeyConditionExpression="GSI1_PK = :gsi1_pk",
                 ExpressionAttributeValues={":gsi1_pk": schema.gsi1_room_pk(room_id)},
                 ScanIndexForward=True,  # Sort by connected_at_ms ascending
             )
-            
+
             connections = []
             for item in response.get("Items", []):
-                connections.append({
-                    "conn_id": item["conn_id"],
-                    "user_id": item["user_id"],
-                    "room_id": item["room_id"],
-                    "connected_at_ms": int(item["connected_at_ms"]),
-                })
-            
+                connections.append(
+                    {
+                        "conn_id": item["conn_id"],
+                        "user_id": item["user_id"],
+                        "room_id": item["room_id"],
+                        "connected_at_ms": int(item["connected_at_ms"]),
+                    }
+                )
+
             return connections
 
     async def update_room(self, conn_id: str, new_room_id: str) -> None:
@@ -173,12 +175,12 @@ class ConnectionRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Get current connected_at_ms for GSI1_SK
             current = await self.get(conn_id)
             if not current:
                 raise ValueError(f"Connection {conn_id} not found")
-            
+
             await table.update_item(
                 Key={
                     "PK": schema.conn_pk(conn_id),

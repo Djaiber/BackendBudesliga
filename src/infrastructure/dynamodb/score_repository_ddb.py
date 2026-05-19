@@ -45,25 +45,25 @@ class ScoreRepositoryDDB:
         """Get player by user ID."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             response = await table.get_item(
                 Key={
                     "PK": schema.user_pk(user_id),
                     "SK": schema.user_profile_sk(),
                 }
             )
-            
+
             item = response.get("Item")
             if not item:
                 return None
-            
+
             return self._item_to_player(item)
 
     async def upsert_player(self, player: Player) -> None:
         """Insert or update a player."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             await table.put_item(
                 Item={
                     "PK": schema.user_pk(player.user_id),
@@ -84,7 +84,7 @@ class ScoreRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Use UpdateItem with SET expressions for atomic update
             response = await table.update_item(
                 Key={
@@ -100,7 +100,7 @@ class ScoreRepositoryDDB:
                 ConditionExpression="attribute_exists(PK)",  # Ensure player exists
                 ReturnValues="ALL_NEW",
             )
-            
+
             item = response["Attributes"]
             return self._item_to_player(item)
 
@@ -113,7 +113,7 @@ class ScoreRepositoryDDB:
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Query GSI1 for room membership items
             response = await table.query(
                 IndexName="GSI1",
@@ -121,23 +121,23 @@ class ScoreRepositoryDDB:
                 ExpressionAttributeValues={":gsi1_pk": schema.gsi1_room_pk(room_id)},
                 ScanIndexForward=False,  # Descending order (highest score first)
             )
-            
+
             # Extract user_ids from room membership items
             user_ids = []
             for item in response.get("Items", []):
                 if "user_id" in item:
                     user_ids.append(item["user_id"])
-            
+
             # Fetch each player's profile
             players = []
             for user_id in user_ids:
                 player = await self.get_player(user_id)
                 if player:
                     players.append(player)
-            
+
             # Sort by score descending (in case GSI1_SK wasn't perfectly maintained)
             players.sort(key=lambda p: p.score, reverse=True)
-            
+
             return players
 
     def _item_to_player(self, item: dict[str, Any]) -> Player:

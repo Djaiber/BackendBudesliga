@@ -27,17 +27,17 @@ def repository(mock_table):
         region="eu-central-1",
         ttl_seconds=3600,
     )
-    
+
     # Create a mock resource that acts as an async context manager
     mock_ddb = AsyncMock()
     mock_ddb.Table = AsyncMock(return_value=mock_table)
     mock_ddb.__aenter__ = AsyncMock(return_value=mock_ddb)
     mock_ddb.__aexit__ = AsyncMock(return_value=None)
-    
+
     # Patch the session.resource to return the mock directly
     def mock_resource(*args, **kwargs):
         return mock_ddb
-    
+
     repo._session.resource = mock_resource
     return repo
 
@@ -46,19 +46,19 @@ def repository(mock_table):
 async def test_put_creates_connection_with_ttl(repository: ConnectionRepositoryDDB, mock_table):
     """Test put creates connection with TTL."""
     mock_table.put_item.return_value = None
-    
+
     await repository.put(
         conn_id="conn123",
         user_id="user1",
         room_id="room456",
         connected_at_ms=1000000000,
     )
-    
+
     # Verify put_item was called with correct data
     mock_table.put_item.assert_called_once()
     call_kwargs = mock_table.put_item.call_args[1]
     item = call_kwargs["Item"]
-    
+
     assert item["PK"] == "CONN#conn123"
     assert item["SK"] == "METADATA"
     assert item["conn_id"] == "conn123"
@@ -74,7 +74,7 @@ async def test_put_creates_connection_with_ttl(repository: ConnectionRepositoryD
 async def test_put_calculates_ttl_correctly(repository: ConnectionRepositoryDDB, mock_table):
     """Test put calculates TTL in epoch seconds."""
     mock_table.put_item.return_value = None
-    
+
     # connected_at_ms = 1500000000 ms = 1500000 seconds
     # ttl = 1500000 + 3600 = 1503600
     await repository.put(
@@ -83,22 +83,24 @@ async def test_put_calculates_ttl_correctly(repository: ConnectionRepositoryDDB,
         room_id="room456",
         connected_at_ms=1500000000,
     )
-    
+
     call_kwargs = mock_table.put_item.call_args[1]
     item = call_kwargs["Item"]
-    
+
     assert item["ttl"] == 1503600
 
 
 @pytest.mark.asyncio
-async def test_get_returns_none_when_connection_not_found(repository: ConnectionRepositoryDDB, mock_table):
+async def test_get_returns_none_when_connection_not_found(
+    repository: ConnectionRepositoryDDB, mock_table
+):
     """Test get returns None for nonexistent connection."""
     # Mock empty response
     mock_table.get_item.return_value = {}
-    
+
     conn = await repository.get("nonexistent")
     assert conn is None
-    
+
     # Verify get_item was called with correct keys
     mock_table.get_item.assert_called_once()
     call_kwargs = mock_table.get_item.call_args[1]
@@ -121,9 +123,9 @@ async def test_get_returns_connection_when_found(repository: ConnectionRepositor
             "ttl": 1003600,
         }
     }
-    
+
     conn = await repository.get("conn123")
-    
+
     assert conn is not None
     assert conn["conn_id"] == "conn123"
     assert conn["user_id"] == "user1"
@@ -137,9 +139,9 @@ async def test_get_returns_connection_when_found(repository: ConnectionRepositor
 async def test_delete_removes_connection(repository: ConnectionRepositoryDDB, mock_table):
     """Test delete removes connection."""
     mock_table.delete_item.return_value = None
-    
+
     await repository.delete("conn123")
-    
+
     # Verify delete_item was called with correct keys
     mock_table.delete_item.assert_called_once()
     call_kwargs = mock_table.delete_item.call_args[1]
@@ -148,16 +150,20 @@ async def test_delete_removes_connection(repository: ConnectionRepositoryDDB, mo
 
 
 @pytest.mark.asyncio
-async def test_delete_nonexistent_connection_is_noop(repository: ConnectionRepositoryDDB, mock_table):
+async def test_delete_nonexistent_connection_is_noop(
+    repository: ConnectionRepositoryDDB, mock_table
+):
     """Test deleting nonexistent connection doesn't raise error."""
     mock_table.delete_item.return_value = None
-    
+
     # Should not raise
     await repository.delete("nonexistent")
 
 
 @pytest.mark.asyncio
-async def test_list_by_room_returns_all_connections(repository: ConnectionRepositoryDDB, mock_table):
+async def test_list_by_room_returns_all_connections(
+    repository: ConnectionRepositoryDDB, mock_table
+):
     """Test list_by_room returns all connections in a room."""
     # Mock GSI query
     mock_table.query.return_value = {
@@ -188,9 +194,9 @@ async def test_list_by_room_returns_all_connections(repository: ConnectionReposi
             },
         ]
     }
-    
+
     connections = await repository.list_by_room("room456")
-    
+
     assert len(connections) == 3
     assert connections[0]["conn_id"] == "conn1"
     assert connections[0]["user_id"] == "user1"
@@ -198,7 +204,7 @@ async def test_list_by_room_returns_all_connections(repository: ConnectionReposi
     assert connections[1]["user_id"] == "user2"
     assert connections[2]["conn_id"] == "conn3"
     assert connections[2]["user_id"] == "user3"
-    
+
     # Verify GSI query was called
     mock_table.query.assert_called_once()
     call_kwargs = mock_table.query.call_args[1]
@@ -208,13 +214,15 @@ async def test_list_by_room_returns_all_connections(repository: ConnectionReposi
 
 
 @pytest.mark.asyncio
-async def test_list_by_room_returns_empty_list_when_no_connections(repository: ConnectionRepositoryDDB, mock_table):
+async def test_list_by_room_returns_empty_list_when_no_connections(
+    repository: ConnectionRepositoryDDB, mock_table
+):
     """Test list_by_room returns empty list when room has no connections."""
     # Mock empty GSI query
     mock_table.query.return_value = {"Items": []}
-    
+
     connections = await repository.list_by_room("empty_room")
-    
+
     assert connections == []
 
 
@@ -232,15 +240,15 @@ async def test_update_room_changes_room_id(repository: ConnectionRepositoryDDB, 
             "connected_at_ms": 1000000000,
         }
     }
-    
+
     mock_table.update_item.return_value = None
-    
+
     await repository.update_room("conn123", "room789")
-    
+
     # Verify update_item was called with correct parameters
     mock_table.update_item.assert_called_once()
     call_kwargs = mock_table.update_item.call_args[1]
-    
+
     assert call_kwargs["Key"]["PK"] == "CONN#conn123"
     assert call_kwargs["Key"]["SK"] == "METADATA"
     assert call_kwargs["UpdateExpression"] == "SET room_id = :room_id, GSI1_PK = :gsi1_pk"
@@ -250,11 +258,13 @@ async def test_update_room_changes_room_id(repository: ConnectionRepositoryDDB, 
 
 
 @pytest.mark.asyncio
-async def test_update_room_raises_when_connection_not_found(repository: ConnectionRepositoryDDB, mock_table):
+async def test_update_room_raises_when_connection_not_found(
+    repository: ConnectionRepositoryDDB, mock_table
+):
     """Test update_room raises ValueError when connection doesn't exist."""
     # Mock get to return None
     mock_table.get_item.return_value = {}
-    
+
     with pytest.raises(ValueError, match="Connection nonexistent not found"):
         await repository.update_room("nonexistent", "room789")
 
@@ -285,9 +295,9 @@ async def test_list_by_room_sorted_by_connected_at(repository: ConnectionReposit
             },
         ]
     }
-    
+
     connections = await repository.list_by_room("room456")
-    
+
     # Verify order is preserved (earliest connection first)
     assert connections[0]["conn_id"] == "conn2"
     assert connections[0]["connected_at_ms"] == 1000000000

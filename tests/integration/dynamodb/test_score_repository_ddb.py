@@ -1,6 +1,6 @@
 """Tests for DynamoDB Score Repository."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -26,17 +26,17 @@ def repository(mock_table):
         table_name="test-table",
         region="eu-central-1",
     )
-    
+
     # Create a mock resource that acts as an async context manager
     mock_ddb = AsyncMock()
     mock_ddb.Table = AsyncMock(return_value=mock_table)
     mock_ddb.__aenter__ = AsyncMock(return_value=mock_ddb)
     mock_ddb.__aexit__ = AsyncMock(return_value=None)
-    
+
     # Patch the session.resource to return the mock directly
     def mock_resource(*args, **kwargs):
         return mock_ddb
-    
+
     repo._session.resource = mock_resource
     return repo
 
@@ -46,10 +46,10 @@ async def test_get_player_returns_none_when_not_found(repository: ScoreRepositor
     """Test get_player returns None for nonexistent player."""
     # Mock empty response
     mock_table.get_item.return_value = {}
-    
+
     player = await repository.get_player("nonexistent")
     assert player is None
-    
+
     # Verify get_item was called with correct keys
     mock_table.get_item.assert_called_once()
     call_kwargs = mock_table.get_item.call_args[1]
@@ -72,9 +72,9 @@ async def test_get_player_returns_player_when_found(repository: ScoreRepositoryD
             "streak": 2,
         }
     }
-    
+
     player = await repository.get_player("user1")
-    
+
     assert player is not None
     assert player.user_id == "user1"
     assert player.name == "Alice"
@@ -93,16 +93,16 @@ async def test_upsert_player_creates_new_player(repository: ScoreRepositoryDDB, 
         tier="Dummies",
         streak=0,
     )
-    
+
     mock_table.put_item.return_value = None
-    
+
     await repository.upsert_player(player)
-    
+
     # Verify put_item was called with correct data
     mock_table.put_item.assert_called_once()
     call_kwargs = mock_table.put_item.call_args[1]
     item = call_kwargs["Item"]
-    
+
     assert item["PK"] == "USER#user1"
     assert item["SK"] == "PROFILE"
     assert item["user_id"] == "user1"
@@ -122,16 +122,16 @@ async def test_upsert_player_updates_existing_player(repository: ScoreRepository
         tier="Enthusiast",
         streak=5,
     )
-    
+
     mock_table.put_item.return_value = None
-    
+
     await repository.upsert_player(player)
-    
+
     # Verify put_item was called (put_item overwrites)
     mock_table.put_item.assert_called_once()
     call_kwargs = mock_table.put_item.call_args[1]
     item = call_kwargs["Item"]
-    
+
     assert item["score"] == 200
     assert item["tier"] == "Enthusiast"
     assert item["streak"] == 5
@@ -148,7 +148,7 @@ async def test_apply_delta_updates_player_atomically(repository: ScoreRepository
         new_tier="Enthusiast",
         multiplier_applied=1.1,
     )
-    
+
     # Mock update_item response
     mock_table.update_item.return_value = {
         "Attributes": {
@@ -161,13 +161,13 @@ async def test_apply_delta_updates_player_atomically(repository: ScoreRepository
             "streak": 3,
         }
     }
-    
+
     updated_player = await repository.apply_delta(delta)
-    
+
     # Verify update_item was called with correct parameters
     mock_table.update_item.assert_called_once()
     call_kwargs = mock_table.update_item.call_args[1]
-    
+
     assert call_kwargs["Key"]["PK"] == "USER#user1"
     assert call_kwargs["Key"]["SK"] == "PROFILE"
     assert call_kwargs["UpdateExpression"] == "SET score = :score, streak = :streak, tier = :tier"
@@ -175,7 +175,7 @@ async def test_apply_delta_updates_player_atomically(repository: ScoreRepository
     assert call_kwargs["ExpressionAttributeValues"][":streak"] == 3
     assert call_kwargs["ExpressionAttributeValues"][":tier"] == "Enthusiast"
     assert "ConditionExpression" in call_kwargs  # Ensures player exists
-    
+
     # Verify returned player
     assert updated_player.user_id == "user1"
     assert updated_player.score == 150
@@ -194,7 +194,7 @@ async def test_apply_delta_handles_negative_points(repository: ScoreRepositoryDD
         new_tier="Dummies",
         multiplier_applied=1.0,
     )
-    
+
     mock_table.update_item.return_value = {
         "Attributes": {
             "PK": "USER#user1",
@@ -206,16 +206,18 @@ async def test_apply_delta_handles_negative_points(repository: ScoreRepositoryDD
             "streak": 0,
         }
     }
-    
+
     updated_player = await repository.apply_delta(delta)
-    
+
     assert updated_player.score == 80
     assert updated_player.streak == 0
     assert updated_player.tier == "Dummies"
 
 
 @pytest.mark.asyncio
-async def test_leaderboard_returns_players_sorted_by_score(repository: ScoreRepositoryDDB, mock_table):
+async def test_leaderboard_returns_players_sorted_by_score(
+    repository: ScoreRepositoryDDB, mock_table
+):
     """Test leaderboard returns players sorted by score descending."""
     # Mock GSI query to return room membership items
     mock_table.query.side_effect = [
@@ -228,7 +230,7 @@ async def test_leaderboard_returns_players_sorted_by_score(repository: ScoreRepo
             ]
         },
     ]
-    
+
     # Mock get_item calls for each player
     mock_table.get_item.side_effect = [
         {
@@ -259,9 +261,9 @@ async def test_leaderboard_returns_players_sorted_by_score(repository: ScoreRepo
             }
         },
     ]
-    
+
     leaderboard = await repository.leaderboard("room123")
-    
+
     # Verify sorted by score descending
     assert len(leaderboard) == 3
     assert leaderboard[0].user_id == "user1"
@@ -270,7 +272,7 @@ async def test_leaderboard_returns_players_sorted_by_score(repository: ScoreRepo
     assert leaderboard[1].score == 200
     assert leaderboard[2].user_id == "user3"
     assert leaderboard[2].score == 100
-    
+
     # Verify GSI query was called
     mock_table.query.assert_called_once()
     call_kwargs = mock_table.query.call_args[1]
@@ -280,13 +282,15 @@ async def test_leaderboard_returns_players_sorted_by_score(repository: ScoreRepo
 
 
 @pytest.mark.asyncio
-async def test_leaderboard_returns_empty_list_for_empty_room(repository: ScoreRepositoryDDB, mock_table):
+async def test_leaderboard_returns_empty_list_for_empty_room(
+    repository: ScoreRepositoryDDB, mock_table
+):
     """Test leaderboard returns empty list when room has no players."""
     # Mock empty GSI query
     mock_table.query.return_value = {"Items": []}
-    
+
     leaderboard = await repository.leaderboard("empty_room")
-    
+
     assert leaderboard == []
 
 
@@ -300,7 +304,7 @@ async def test_leaderboard_skips_players_not_found(repository: ScoreRepositoryDD
             {"user_id": "user2", "GSI1_PK": "ROOM#room123", "GSI1_SK": 100},
         ]
     }
-    
+
     # Mock get_item: user1 exists, user2 doesn't
     mock_table.get_item.side_effect = [
         {
@@ -314,9 +318,9 @@ async def test_leaderboard_skips_players_not_found(repository: ScoreRepositoryDD
         },
         {},  # user2 not found
     ]
-    
+
     leaderboard = await repository.leaderboard("room123")
-    
+
     # Only user1 should be in leaderboard
     assert len(leaderboard) == 1
     assert leaderboard[0].user_id == "user1"

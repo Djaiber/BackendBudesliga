@@ -55,7 +55,9 @@ def use_case(
     )
 
 
-def make_event(event_type: str, minute: int, second: int = 0, team: str = "home", player: str | None = None) -> MatchEvent:
+def make_event(
+    event_type: str, minute: int, second: int = 0, team: str = "home", player: str | None = None
+) -> MatchEvent:
     """Helper to build a MatchEvent with all required fields."""
     return MatchEvent(
         event_id=f"{event_type}-{minute}-{second}",
@@ -103,7 +105,7 @@ async def test_open_window_with_corners_game(
     assert saved.game == "CORNERS_IN_INTERVAL"
 
     assert len(ai_gen.calls) == 1
-    assert ai_gen.calls[0]["game_type"] == "CORNERS_IN_INTERVAL"
+    assert ai_gen.calls[0]["game"] == "CORNERS_IN_INTERVAL"
 
     assert len(broadcaster.broadcast_to_room_calls) == 1
     msg = broadcaster.broadcast_to_room_calls[0]
@@ -188,8 +190,7 @@ async def test_ai_generator_receives_context(
     await use_case.execute(room_id="ROOM-1", recent_events=events, correct_answer=2)
 
     assert len(ai_gen.calls) == 1
-    context = ai_gen.calls[0]["context"]
-    assert "recent_events" in context
-    assert len(context["recent_events"]) == 1
-    assert context["recent_events"][0]["event_type"] == "CORNER_KICK"
-    assert context["recent_events"][0]["minute"] == 10
+    recent_events = ai_gen.calls[0]["recent_events"]
+    assert len(recent_events) == 1
+    assert recent_events[0].event_type == "CORNER_KICK"
+    assert recent_events[0].minute == 10

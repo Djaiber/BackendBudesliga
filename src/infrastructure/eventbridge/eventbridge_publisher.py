@@ -45,7 +45,7 @@ class EventBridgePublisher:
         Publish a domain event to EventBridge.
 
         Args:
-            source: Event source identifier (e.g., "connected-arena.game-engine")
+            source: Event source identifier (e.g., "my-app.game-engine")
             detail_type: Event type (e.g., "PredictionWindowOpened")
             detail: Event payload (will be JSON-serialized)
         """

@@ -1,7 +1,6 @@
 """Shared DynamoDB resource builder for aioboto3."""
 
 import aioboto3
-from types_aiobotocore_dynamodb import DynamoDBServiceResource
 
 
 def build_ddb_resource(
@@ -24,7 +23,7 @@ def build_ddb_resource(
         ...     table = await ddb.Table('my-table')
     """
     session = aioboto3.Session()
-    
+
     # Return a function that creates the resource with the right config
     # The caller will use: async with session.resource('dynamodb', ...) as ddb
     return session

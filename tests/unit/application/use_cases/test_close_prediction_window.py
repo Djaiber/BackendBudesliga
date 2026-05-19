@@ -80,7 +80,7 @@ async def test_close_window_with_exact_prediction(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     # Setup room
     room = Room(
         room_id="ROOM-1",
@@ -89,7 +89,7 @@ async def test_close_window_with_exact_prediction(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     # Setup window
     window = PredictionWindow(
         window_id="WIN-1",
@@ -102,7 +102,7 @@ async def test_close_window_with_exact_prediction(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Player submits exact prediction immediately
     prediction = Prediction(
         window_id="WIN-1",
@@ -111,21 +111,21 @@ async def test_close_window_with_exact_prediction(
         submitted_at_ms=clock.now_ms(),
     )
     await window_repo.add_prediction("WIN-1", prediction)
-    
+
     # Close window
     result = await use_case.execute("WIN-1")
-    
+
     # Check result
     assert result.window_id == "WIN-1"
     assert result.correct_answer == "1"
     assert result.player_deltas["p1"] == 110  # 100 * 1.1 (instant submission)
-    
+
     # Check player updated
     updated_player = await score_repo.get_player("p1")
     assert updated_player is not None
     assert updated_player.score == 110
     assert updated_player.streak == 1
-    
+
     # Check broadcasts (close, result, leaderboard)
     assert len(broadcaster.broadcast_to_room_calls) == 3
 
@@ -143,15 +143,15 @@ async def test_close_window_with_ranked_predictions(
     players = []
     for i in range(4):
         p = Player(
-            user_id=f"p{i+1}",
-            name=f"Player{i+1}",
+            user_id=f"p{i + 1}",
+            name=f"Player{i + 1}",
             score=0,
             tier="Dummies",
             streak=0,
         )
         await score_repo.upsert_player(p)
         players.append(p)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=tuple(players),
@@ -159,7 +159,7 @@ async def test_close_window_with_ranked_predictions(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     # Setup window (correct answer = 1, first in options)
     window = PredictionWindow(
         window_id="WIN-1",
@@ -172,32 +172,40 @@ async def test_close_window_with_ranked_predictions(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Players submit predictions at same time
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(window_id="WIN-1", user_id="p1", value=1, submitted_at_ms=clock.now_ms()),  # Exact
+        Prediction(
+            window_id="WIN-1", user_id="p1", value=1, submitted_at_ms=clock.now_ms()
+        ),  # Exact
     )
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(window_id="WIN-1", user_id="p2", value=2, submitted_at_ms=clock.now_ms()),  # Rank 2
+        Prediction(
+            window_id="WIN-1", user_id="p2", value=2, submitted_at_ms=clock.now_ms()
+        ),  # Rank 2
     )
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(window_id="WIN-1", user_id="p3", value=3, submitted_at_ms=clock.now_ms()),  # Rank 3
+        Prediction(
+            window_id="WIN-1", user_id="p3", value=3, submitted_at_ms=clock.now_ms()
+        ),  # Rank 3
     )
     await window_repo.add_prediction(
         "WIN-1",
-        Prediction(window_id="WIN-1", user_id="p4", value=5, submitted_at_ms=clock.now_ms()),  # Rank 4
+        Prediction(
+            window_id="WIN-1", user_id="p4", value=5, submitted_at_ms=clock.now_ms()
+        ),  # Rank 4
     )
-    
+
     result = await use_case.execute("WIN-1")
-    
+
     # Check points (all with 1.1x speed multiplier)
     assert result.player_deltas["p1"] == 110  # 100 * 1.1
-    assert result.player_deltas["p2"] == 55   # 50 * 1.1
-    assert result.player_deltas["p3"] == 33   # 30 * 1.1
-    assert result.player_deltas["p4"] == 22   # 20 * 1.1
+    assert result.player_deltas["p2"] == 55  # 50 * 1.1
+    assert result.player_deltas["p3"] == 33  # 30 * 1.1
+    assert result.player_deltas["p4"] == 22  # 20 * 1.1
 
 
 @pytest.mark.asyncio
@@ -218,7 +226,7 @@ async def test_close_window_with_no_response_penalty(
         streak=2,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -226,7 +234,7 @@ async def test_close_window_with_no_response_penalty(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     # Setup window (no predictions submitted)
     window = PredictionWindow(
         window_id="WIN-1",
@@ -239,12 +247,12 @@ async def test_close_window_with_no_response_penalty(
         status="open",
     )
     await window_repo.save(window)
-    
+
     result = await use_case.execute("WIN-1")
-    
+
     # Check penalty applied
     assert result.player_deltas["p1"] == -10
-    
+
     # Check player updated
     updated_player = await score_repo.get_player("p1")
     assert updated_player is not None
@@ -270,7 +278,7 @@ async def test_close_window_with_streak_multiplier(
         streak=3,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -278,7 +286,7 @@ async def test_close_window_with_streak_multiplier(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     # Setup window
     window = PredictionWindow(
         window_id="WIN-1",
@@ -291,18 +299,18 @@ async def test_close_window_with_streak_multiplier(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Exact prediction at start
     await window_repo.add_prediction(
         "WIN-1",
         Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=clock.now_ms()),
     )
-    
+
     result = await use_case.execute("WIN-1")
-    
+
     # Check stacked multipliers: 100 * 1.1 (speed) * 1.2 (streak) = 132
     assert result.player_deltas["p1"] == 132
-    
+
     # Check streak incremented
     updated_player = await score_repo.get_player("p1")
     assert updated_player is not None
@@ -327,7 +335,7 @@ async def test_close_window_with_speed_multiplier_decay(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -335,7 +343,7 @@ async def test_close_window_with_speed_multiplier_decay(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     # Setup window
     open_ms = clock.now_ms()
     window = PredictionWindow(
@@ -349,15 +357,15 @@ async def test_close_window_with_speed_multiplier_decay(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Submit at deadline (should get 1.0x multiplier)
     await window_repo.add_prediction(
         "WIN-1",
         Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=open_ms + 20000),
     )
-    
+
     result = await use_case.execute("WIN-1")
-    
+
     # Check no speed bonus at deadline: 100 * 1.0 = 100
     assert result.player_deltas["p1"] == 100
 
@@ -380,7 +388,7 @@ async def test_close_window_updates_tier(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -388,7 +396,7 @@ async def test_close_window_updates_tier(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     # Setup window
     window = PredictionWindow(
         window_id="WIN-1",
@@ -401,15 +409,15 @@ async def test_close_window_updates_tier(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Exact prediction (will earn 110 points -> 500 total)
     await window_repo.add_prediction(
         "WIN-1",
         Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=clock.now_ms()),
     )
-    
+
     await use_case.execute("WIN-1")
-    
+
     # Check tier upgraded
     updated_player = await score_repo.get_player("p1")
     assert updated_player is not None
@@ -436,7 +444,7 @@ async def test_close_window_broadcasts_all_messages(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -444,7 +452,7 @@ async def test_close_window_broadcasts_all_messages(
         created_at=clock.now_ms(),
     )
     await room_repo.save(room)
-    
+
     window = PredictionWindow(
         window_id="WIN-1",
         room_id="ROOM-1",
@@ -456,28 +464,28 @@ async def test_close_window_broadcasts_all_messages(
         status="open",
     )
     await window_repo.save(window)
-    
+
     await window_repo.add_prediction(
         "WIN-1",
         Prediction(window_id="WIN-1", user_id="p1", value=3, submitted_at_ms=clock.now_ms()),
     )
-    
+
     await use_case.execute("WIN-1")
-    
+
     # Check 3 broadcasts
     assert len(broadcaster.broadcast_to_room_calls) == 3
-    
+
     # Check window close message
     close_msg = broadcaster.broadcast_to_room_calls[0]
     assert close_msg["message"]["type"] == "prediction_window_close"
     assert close_msg["message"]["window_id"] == "WIN-1"
-    
+
     # Check result message
     result_msg = broadcaster.broadcast_to_room_calls[1]
     assert result_msg["message"]["type"] == "prediction_result"
     assert result_msg["message"]["correct_answer"] == "1"
     assert len(result_msg["message"]["results"]) == 1
-    
+
     # Check leaderboard message
     leaderboard_msg = broadcaster.broadcast_to_room_calls[2]
     assert leaderboard_msg["message"]["type"] == "leaderboard_update"

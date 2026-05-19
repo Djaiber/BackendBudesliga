@@ -50,17 +50,17 @@ async def test_submit_prediction_success(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Submit prediction
     result = await use_case.execute(
         window_id="WIN-1",
         user_id="p1",
         value="16:00",
     )
-    
+
     assert result.success is True
     assert result.error is None
-    
+
     # Check prediction stored
     predictions = await window_repo.list_predictions("WIN-1")
     assert len(predictions) == 1
@@ -79,7 +79,7 @@ async def test_submit_to_nonexistent_window(
         user_id="p1",
         value="10:00",
     )
-    
+
     assert result.success is False
     assert "not found" in result.error  # type: ignore
 
@@ -103,13 +103,13 @@ async def test_submit_to_closed_window(
         status="closed",
     )
     await window_repo.save(window)
-    
+
     result = await use_case.execute(
         window_id="WIN-1",
         user_id="p1",
         value="16:00",
     )
-    
+
     assert result.success is False
     assert "not open" in result.error  # type: ignore
 
@@ -133,13 +133,13 @@ async def test_submit_to_expired_window(
         status="open",
     )
     await window_repo.save(window)
-    
+
     result = await use_case.execute(
         window_id="WIN-1",
         user_id="p1",
         value="16:00",
     )
-    
+
     assert result.success is False
     assert "expired" in result.error  # type: ignore
 
@@ -163,7 +163,7 @@ async def test_duplicate_prediction_rejected(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # First submission succeeds
     result1 = await use_case.execute(
         window_id="WIN-1",
@@ -171,7 +171,7 @@ async def test_duplicate_prediction_rejected(
         value="16:00",
     )
     assert result1.success is True
-    
+
     # Second submission fails
     result2 = await use_case.execute(
         window_id="WIN-1",
@@ -180,7 +180,7 @@ async def test_duplicate_prediction_rejected(
     )
     assert result2.success is False
     assert "already submitted" in result2.error  # type: ignore
-    
+
     # Only one prediction stored
     predictions = await window_repo.list_predictions("WIN-1")
     assert len(predictions) == 1
@@ -205,16 +205,16 @@ async def test_multiple_players_can_submit(
         status="open",
     )
     await window_repo.save(window)
-    
+
     # Multiple players submit
     result1 = await use_case.execute(window_id="WIN-1", user_id="p1", value=2)
     result2 = await use_case.execute(window_id="WIN-1", user_id="p2", value=3)
     result3 = await use_case.execute(window_id="WIN-1", user_id="p3", value=4)
-    
+
     assert result1.success is True
     assert result2.success is True
     assert result3.success is True
-    
+
     # All predictions stored
     predictions = await window_repo.list_predictions("WIN-1")
     assert len(predictions) == 3

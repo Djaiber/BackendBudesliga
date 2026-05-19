@@ -27,7 +27,7 @@ class FakeRoomRepository:
         room = self.rooms.get(room_id)
         if room is None:
             raise ValueError(f"Room {room_id} not found")
-        
+
         # Create new room with added player
         new_players = list(room.players) + [player]
         self.rooms[room_id] = Room(
@@ -42,7 +42,7 @@ class FakeRoomRepository:
         room = self.rooms.get(room_id)
         if room is None:
             raise ValueError(f"Room {room_id} not found")
-        
+
         # Create new room without the player
         new_players = [p for p in room.players if p.user_id != user_id]
         self.rooms[room_id] = Room(

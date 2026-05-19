@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 import aioboto3
 
@@ -40,7 +40,7 @@ class ReplayLoader:
         self._endpoint_url = endpoint_url
         self._enable_cache = enable_cache
         self._session = aioboto3.Session()
-        
+
         # In-memory cache for Lambda reuse
         self._cache: dict[str, list[MatchEvent]] = {}
 
@@ -74,17 +74,17 @@ class ReplayLoader:
             async with self._session.client("s3", **client_kwargs) as s3:
                 # Get object from S3
                 response = await s3.get_object(Bucket=self._bucket, Key=key)
-                
+
                 # Read body
                 async with response["Body"] as stream:
                     body = await stream.read()
-                
+
                 # Parse JSON
                 data = json.loads(body.decode("utf-8"))
-                
+
                 if not isinstance(data, list):
                     raise ValueError(f"Expected JSON array, got {type(data).__name__}")
-                
+
                 # Convert to MatchEvent entities
                 events = []
                 for idx, item in enumerate(data):
@@ -104,15 +104,15 @@ class ReplayLoader:
                     except (KeyError, ValueError, TypeError) as e:
                         logger.warning(f"Skipping invalid event at index {idx}: {e}")
                         continue
-                
+
                 logger.info(f"Loaded {len(events)} events from {key}")
-                
+
                 # Cache for future calls
                 if self._enable_cache:
                     self._cache[key] = events
-                
+
                 return events
-                
+
         except Exception as e:
             error_msg = f"Failed to load events from S3: {e}"
             logger.error(error_msg)
@@ -142,17 +142,17 @@ class ReplayLoader:
             async with self._session.client("s3", **client_kwargs) as s3:
                 # Get object from S3
                 response = await s3.get_object(Bucket=self._bucket, Key=key)
-                
+
                 # Read body
                 async with response["Body"] as stream:
                     body = await stream.read()
-                
-                # Parse JSON
-                data = json.loads(body.decode("utf-8"))
-                
+
+                # Parse JSON — json.loads returns Any; cast to declared return type
+                data = cast(dict[str, Any], json.loads(body.decode("utf-8")))
+
                 logger.info(f"Loaded match info from {key}")
                 return data
-                
+
         except Exception as e:
             error_msg = f"Failed to load match info from S3: {e}"
             logger.error(error_msg)

@@ -153,9 +153,7 @@ class ClosePredictionWindowUseCase:
                 points_earned = self._scoring_service.apply_streak(
                     base_points, speed_mult, streak_mult
                 )
-                new_streak = self._streak_service.next_streak(
-                    player_state.streak, is_exact
-                )
+                new_streak = self._streak_service.next_streak(player_state.streak, is_exact)
 
                 results.append(
                     PredictionResultDTO(
@@ -180,7 +178,7 @@ class ClosePredictionWindowUseCase:
                 new_tier=new_tier,
                 multiplier_applied=speed_mult,
             )
-            await self._score_repo.apply_delta(player.user_id, delta)
+            await self._score_repo.apply_delta(delta)
             player_deltas[player.user_id] = points_earned
 
         # Broadcast results

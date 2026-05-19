@@ -69,7 +69,7 @@ class ApiGatewayBroadcaster:
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
-            
+
             if error_code == "GoneException":
                 # Connection is stale, delete it
                 logger.warning(f"Connection {connection_id} is gone, deleting")
@@ -100,7 +100,7 @@ class ApiGatewayBroadcaster:
         """
         # Get all connections in the room
         connections = await self._connection_repo.list_by_room(room_id)
-        
+
         if not connections:
             logger.info(f"No connections found for room: {room_id}")
             return
@@ -108,11 +108,8 @@ class ApiGatewayBroadcaster:
         logger.info(f"Broadcasting to {len(connections)} connections in room: {room_id}")
 
         # Send to all connections in parallel
-        tasks = [
-            self._send_with_error_handling(conn["conn_id"], message)
-            for conn in connections
-        ]
-        
+        tasks = [self._send_with_error_handling(conn["conn_id"], message) for conn in connections]
+
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_with_error_handling(

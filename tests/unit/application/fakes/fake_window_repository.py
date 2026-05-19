@@ -21,10 +21,7 @@ class FakeWindowRepository:
 
     async def list_open_by_room(self, room_id: str) -> list[PredictionWindow]:
         """List open windows for room."""
-        return [
-            w for w in self.windows.values()
-            if w.room_id == room_id and w.status == "open"
-        ]
+        return [w for w in self.windows.values() if w.room_id == room_id and w.status == "open"]
 
     async def add_prediction(self, window_id: str, prediction: Prediction) -> None:
         """Add prediction to window."""
@@ -41,7 +38,7 @@ class FakeWindowRepository:
         window = self.windows.get(window_id)
         if window is None:
             raise ValueError(f"Window {window_id} not found")
-        
+
         # Create closed window
         self.windows[window_id] = PredictionWindow(
             window_id=window.window_id,

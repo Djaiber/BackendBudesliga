@@ -1,5 +1,7 @@
 """Handle match event use case."""
 
+from typing import Any
+
 from ...domain.entities import MatchEvent
 from ...domain.ports import EventPublisher, RoomRepository, WebSocketBroadcaster
 from ..dto import event_to_message
@@ -32,18 +34,20 @@ class HandleMatchEventUseCase:
         # Get all active rooms
         active_rooms = await self._room_repo.list_by_status("active")
 
-        # Broadcast to each room
-        message = event_to_message(event)
+        # Broadcast to each room — cast TypedDict to dict[str, Any] for port compatibility
+        message: dict[str, Any] = dict(event_to_message(event))
         for room in active_rooms:
             await self._broadcaster.broadcast_to_room(
                 room_id=room.room_id,
                 message=message,
             )
 
-        # Publish to event bus (using FakeEventPublisher signature)
+        # Publish to event bus
         await self._event_publisher.publish(
-            event_type="match_event",
-            payload={
+            source="connected-arena.game-engine",
+            detail_type="MatchEvent",
+            detail={
+                "event_id": event.event_id,
                 "event_type": event.event_type,
                 "minute": event.minute,
                 "second": event.second,

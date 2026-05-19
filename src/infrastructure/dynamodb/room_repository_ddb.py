@@ -45,30 +45,30 @@ class RoomRepositoryDDB:
         """Get room by ID, hydrating metadata and all players."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Query entire partition
             response = await table.query(
                 KeyConditionExpression="PK = :pk",
                 ExpressionAttributeValues={":pk": schema.room_pk(room_id)},
             )
-            
+
             items = response.get("Items", [])
             if not items:
                 return None
-            
+
             # Separate metadata and players
             metadata = None
             players = []
-            
+
             for item in items:
                 if item["SK"] == schema.room_meta_sk():
                     metadata = item
                 elif item["SK"].startswith("PLAYER#"):
                     players.append(self._item_to_player(item))
-            
+
             if metadata is None:
                 return None
-            
+
             return Room(
                 room_id=room_id,
                 players=tuple(players),
@@ -80,7 +80,7 @@ class RoomRepositoryDDB:
         """Save room metadata and all players using BatchWriteItem."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Build metadata item
             metadata_item = {
                 "PK": schema.room_pk(room.room_id),
@@ -90,7 +90,7 @@ class RoomRepositoryDDB:
                 "GSI1_PK": schema.gsi1_status_pk(room.status),
                 "GSI1_SK": room.created_at,
             }
-            
+
             # Build player items
             player_items = [
                 {
@@ -104,7 +104,7 @@ class RoomRepositoryDDB:
                 }
                 for player in room.players
             ]
-            
+
             # Write all items
             # First, delete existing players (query + batch delete)
             existing_response = await table.query(
@@ -114,12 +114,12 @@ class RoomRepositoryDDB:
                     ":sk_prefix": "PLAYER#",
                 },
             )
-            
+
             # Delete old players
             async with table.batch_writer() as batch:
                 for item in existing_response.get("Items", []):
                     await batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
-            
+
             # Write new state
             async with table.batch_writer() as batch:
                 await batch.put_item(Item=metadata_item)
@@ -130,7 +130,7 @@ class RoomRepositoryDDB:
         """List rooms by status using GSI1, sorted by created_at."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Query GSI1
             response = await table.query(
                 IndexName="GSI1",
@@ -138,7 +138,7 @@ class RoomRepositoryDDB:
                 ExpressionAttributeValues={":gsi1_pk": schema.gsi1_status_pk(status)},
                 ScanIndexForward=True,  # Sort by GSI1_SK (created_at) ascending
             )
-            
+
             # Extract room IDs from metadata items
             room_ids = []
             for item in response.get("Items", []):
@@ -146,21 +146,21 @@ class RoomRepositoryDDB:
                     # Extract room_id from PK
                     room_id = item["PK"].replace("ROOM#", "")
                     room_ids.append(room_id)
-            
+
             # Hydrate each room
             rooms = []
             for room_id in room_ids:
                 room = await self.get(room_id)
                 if room:
                     rooms.append(room)
-            
+
             return rooms
 
     async def add_player(self, room_id: str, player: Player) -> Room:
         """Add player to room, then re-read and return updated room."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Put player item
             await table.put_item(
                 Item={
@@ -173,19 +173,19 @@ class RoomRepositoryDDB:
                     "streak": player.streak,
                 }
             )
-            
+
             # Re-read room
             room = await self.get(room_id)
             if room is None:
                 raise ValueError(f"Room {room_id} not found")
-            
+
             return room
 
     async def remove_player(self, room_id: str, user_id: str) -> Room:
         """Remove player from room, then re-read and return updated room."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Delete player item
             await table.delete_item(
                 Key={
@@ -193,25 +193,25 @@ class RoomRepositoryDDB:
                     "SK": schema.player_sk(user_id),
                 }
             )
-            
+
             # Re-read room
             room = await self.get(room_id)
             if room is None:
                 raise ValueError(f"Room {room_id} not found")
-            
+
             return room
 
     async def delete(self, room_id: str) -> None:
         """Delete entire room partition (metadata + all players)."""
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
-            
+
             # Query all items in partition
             response = await table.query(
                 KeyConditionExpression="PK = :pk",
                 ExpressionAttributeValues={":pk": schema.room_pk(room_id)},
             )
-            
+
             # Batch delete all items
             items = response.get("Items", [])
             if items:

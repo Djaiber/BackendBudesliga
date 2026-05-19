@@ -89,7 +89,7 @@ def test_key_uniqueness() -> None:
     user_id = "123"
     conn_id = "123"
     window_id = "123"
-    
+
     keys = {
         schema.room_pk(room_id),
         schema.user_pk(user_id),
@@ -97,7 +97,7 @@ def test_key_uniqueness() -> None:
         schema.window_pk(window_id),
         schema.cache_pk(),
     }
-    
+
     # All keys should be unique
     assert len(keys) == 5
 
@@ -105,7 +105,7 @@ def test_key_uniqueness() -> None:
 def test_sort_key_uniqueness() -> None:
     """Test that different sort key types within same partition are unique."""
     user_id = "user123"
-    
+
     # Within a room partition
     room_sort_keys = {
         schema.room_meta_sk(),
@@ -113,7 +113,7 @@ def test_sort_key_uniqueness() -> None:
         schema.player_sk("user456"),
     }
     assert len(room_sort_keys) == 3
-    
+
     # Within a window partition
     window_sort_keys = {
         schema.window_meta_sk(),
@@ -121,7 +121,7 @@ def test_sort_key_uniqueness() -> None:
         schema.submission_sk("user456"),
     }
     assert len(window_sort_keys) == 3
-    
+
     # METADATA is reused across partitions (which is fine - different PKs)
     assert schema.room_meta_sk() == schema.conn_meta_sk() == schema.window_meta_sk()
 
@@ -130,9 +130,9 @@ def test_gsi1_key_patterns() -> None:
     """Test GSI1 key patterns for queries."""
     # Status-based queries
     assert schema.gsi1_status_pk("active").startswith("STATUS#")
-    
+
     # Room-based queries
     assert schema.gsi1_room_pk("room123").startswith("ROOM#")
-    
+
     # Different patterns
     assert schema.gsi1_status_pk("active") != schema.gsi1_room_pk("active")

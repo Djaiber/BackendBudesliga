@@ -39,7 +39,9 @@ def use_case(
     )
 
 
-def make_event(event_type: str, minute: int, second: int = 0, team: str = "home", player: str | None = None) -> MatchEvent:
+def make_event(
+    event_type: str, minute: int, second: int = 0, team: str = "home", player: str | None = None
+) -> MatchEvent:
     """Helper to build a MatchEvent with required fields."""
     return MatchEvent(
         event_id=f"{event_type}-{minute}-{second}",
@@ -118,10 +120,11 @@ async def test_handle_event_publishes_to_event_bus(
 
     assert len(event_publisher.published) == 1
     published = event_publisher.published[0]
-    assert published["event_type"] == "match_event"
-    assert published["payload"]["event_type"] == "SHOT"
-    assert published["payload"]["minute"] == 20
-    assert published["payload"]["player"] == "Bob"
+    assert published["source"] == "connected-arena.game-engine"
+    assert published["detail_type"] == "MatchEvent"
+    assert published["detail"]["event_type"] == "SHOT"
+    assert published["detail"]["minute"] == 20
+    assert published["detail"]["player"] == "Bob"
 
 
 @pytest.mark.asyncio

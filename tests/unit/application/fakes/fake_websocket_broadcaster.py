@@ -23,10 +23,12 @@ class FakeWebSocketBroadcaster:
             connection_id: WebSocket connection ID
             message: Message to send
         """
-        self.sent_to_connection.append({
-            "connection_id": connection_id,
-            "message": message,
-        })
+        self.sent_to_connection.append(
+            {
+                "connection_id": connection_id,
+                "message": message,
+            }
+        )
 
     async def broadcast_to_room(
         self,
@@ -42,11 +44,13 @@ class FakeWebSocketBroadcaster:
             message: Message to broadcast
             exclude_connection_id: Optional connection to exclude
         """
-        self.broadcast_to_room_calls.append({
-            "room_id": room_id,
-            "message": message,
-            "exclude_connection_id": exclude_connection_id,
-        })
+        self.broadcast_to_room_calls.append(
+            {
+                "room_id": room_id,
+                "message": message,
+                "exclude_connection_id": exclude_connection_id,
+            }
+        )
 
     def clear(self) -> None:
         """Clear captured messages."""

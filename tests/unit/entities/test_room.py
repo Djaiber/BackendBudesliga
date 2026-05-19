@@ -27,9 +27,7 @@ def test_room_happy_path() -> None:
 
 def test_room_too_many_players() -> None:
     """Test that more than MAX_PLAYERS raises ValueError."""
-    players = tuple(
-        Player(f"user-{i}", f"Player{i}", 0, Player.DUMMIES, 0) for i in range(5)
-    )
+    players = tuple(Player(f"user-{i}", f"Player{i}", 0, Player.DUMMIES, 0) for i in range(5))
 
     with pytest.raises(ValueError, match="players count must be 0-4"):
         Room(

@@ -49,22 +49,22 @@ class BroadcastEmojiUseCase:
         # Validate emoji
         if emoji not in ALLOWED_EMOJIS:
             raise ValueError(f"Emoji {emoji} not allowed")
-        
+
         # Get room
         room = await self._room_repo.get(room_id)
         if room is None:
             raise ValueError(f"Room {room_id} not found")
-        
+
         # Check player in room
         player_in_room = any(p.user_id == user_id for p in room.players)
         if not player_in_room:
             raise ValueError(f"Player {user_id} not in room {room_id}")
-        
+
         # Get player name
         player = await self._score_repo.get_player(user_id)
         if player is None:
             raise ValueError(f"Player {user_id} not found")
-        
+
         # Broadcast emoji
         await self._broadcaster.broadcast_to_room(
             room_id=room_id,

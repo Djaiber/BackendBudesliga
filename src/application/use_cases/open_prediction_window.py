@@ -1,7 +1,5 @@
 """Open prediction window use case."""
 
-from typing import Any
-
 from ...domain.entities import MatchEvent, PredictionWindow
 from ...domain.ports import (
     AIGenerator,
@@ -43,6 +41,8 @@ class OpenPredictionWindowUseCase:
         room_id: str,
         recent_events: list[MatchEvent],
         correct_answer: str | int,
+        team_a: str = "",
+        team_b: str = "",
     ) -> PredictionWindow:
         """
         Execute open prediction window use case.
@@ -51,6 +51,8 @@ class OpenPredictionWindowUseCase:
             room_id: Room to open window for
             recent_events: Recent match events for game selection
             correct_answer: Correct answer for the prediction
+            team_a: First team identifier for AI prompt generation
+            team_b: Second team identifier for AI prompt generation
 
         Returns:
             Created PredictionWindow
@@ -60,19 +62,10 @@ class OpenPredictionWindowUseCase:
         # Select game type based on recent events (instance method)
         game = self._game_engine.select_game(recent_events, now_ms)
 
-        # Build context for AI
-        context: dict[str, Any] = {
-            "recent_events": [
-                {
-                    "event_type": e.event_type,
-                    "minute": e.minute,
-                    "second": e.second,
-                    "team": e.team,
-                }
-                for e in recent_events
-            ],
-        }
-        prompt = await self._ai_gen.generate_prompt(game, context)
+        # Generate prompt text and optional answer options from AI
+        prompt_text, options = await self._ai_gen.generate_prompt(
+            game, recent_events, team_a, team_b
+        )
 
         # Create window
         window_id = self._id_gen.new_id("WIN")
@@ -80,10 +73,10 @@ class OpenPredictionWindowUseCase:
             window_id=window_id,
             room_id=room_id,
             game=game,
-            prompt=prompt,
+            prompt=prompt_text,
             opened_at_ms=now_ms,
             deadline_ms=now_ms + WINDOW_DURATION_MS,
-            options=None,
+            options=options,
             status="open",
         )
         await self._window_repo.save(window)
@@ -95,7 +88,7 @@ class OpenPredictionWindowUseCase:
                 "type": "prediction_window_open",
                 "window_id": window_id,
                 "game": game,
-                "prompt": prompt,
+                "prompt": prompt_text,
                 "opened_at_ms": now_ms,
                 "deadline_ms": now_ms + WINDOW_DURATION_MS,
             },

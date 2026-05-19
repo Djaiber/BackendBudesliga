@@ -60,7 +60,7 @@ async def test_broadcast_allowed_emoji(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     # Setup room
     room = Room(
         room_id="ROOM-1",
@@ -69,14 +69,14 @@ async def test_broadcast_allowed_emoji(
         created_at=1000000,
     )
     await room_repo.save(room)
-    
+
     # Broadcast emoji
     await use_case.execute(
         room_id="ROOM-1",
         user_id="p1",
         emoji="🔥",
     )
-    
+
     # Check broadcast
     assert len(broadcaster.broadcast_to_room_calls) == 1
     msg = broadcaster.broadcast_to_room_calls[0]
@@ -104,7 +104,7 @@ async def test_broadcast_all_allowed_emojis(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -112,7 +112,7 @@ async def test_broadcast_all_allowed_emojis(
         created_at=1000000,
     )
     await room_repo.save(room)
-    
+
     # Test each allowed emoji
     allowed = ["🔥", "👏", "😂", "😱", "🎯", "⚽"]
     for emoji in allowed:
@@ -121,7 +121,7 @@ async def test_broadcast_all_allowed_emojis(
             user_id="p1",
             emoji=emoji,
         )
-    
+
     # All succeeded
     assert len(broadcaster.broadcast_to_room_calls) == 6
 
@@ -142,7 +142,7 @@ async def test_broadcast_disallowed_emoji_raises_error(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -150,7 +150,7 @@ async def test_broadcast_disallowed_emoji_raises_error(
         created_at=1000000,
     )
     await room_repo.save(room)
-    
+
     # Try disallowed emoji
     with pytest.raises(ValueError, match="not allowed"):
         await use_case.execute(
@@ -189,7 +189,7 @@ async def test_broadcast_from_player_not_in_room_raises_error(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     # Setup room without player
     other_player = Player(
         user_id="p2",
@@ -205,7 +205,7 @@ async def test_broadcast_from_player_not_in_room_raises_error(
         created_at=1000000,
     )
     await room_repo.save(room)
-    
+
     # Try to broadcast
     with pytest.raises(ValueError, match="not in room"):
         await use_case.execute(
@@ -231,7 +231,7 @@ async def test_broadcast_from_nonexistent_player_raises_error(
         streak=0,
     )
     await score_repo.upsert_player(player)
-    
+
     room = Room(
         room_id="ROOM-1",
         players=(player,),
@@ -239,10 +239,10 @@ async def test_broadcast_from_nonexistent_player_raises_error(
         created_at=1000000,
     )
     await room_repo.save(room)
-    
+
     # Delete player from score repo
     score_repo.players.clear()
-    
+
     # Try to broadcast
     with pytest.raises(ValueError, match="Player p1 not found"):
         await use_case.execute(

@@ -18,11 +18,11 @@ class FakeScoreRepository:
         """Insert or update player."""
         self.players[player.user_id] = player
 
-    async def apply_delta(self, user_id: str, delta: ScoreDelta) -> Player:
+    async def apply_delta(self, delta: ScoreDelta) -> Player:
         """Apply score delta to player."""
-        player = self.players.get(user_id)
+        player = self.players.get(delta.user_id)
         if player is None:
-            raise ValueError(f"Player {user_id} not found")
+            raise ValueError(f"Player {delta.user_id} not found")
 
         updated_player = Player(
             user_id=player.user_id,
@@ -31,7 +31,7 @@ class FakeScoreRepository:
             tier=delta.new_tier,
             streak=delta.new_streak,
         )
-        self.players[user_id] = updated_player
+        self.players[delta.user_id] = updated_player
         return updated_player
 
     async def leaderboard(self, room_id: str) -> list[Player]:

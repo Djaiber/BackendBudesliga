@@ -51,14 +51,14 @@ class SubmitPredictionUseCase:
                 success=False,
                 error=f"Window {window_id} not found",
             )
-        
+
         # Check window is open
         if window.status != "open":
             return SubmitPredictionResult(
                 success=False,
                 error=f"Window {window_id} is not open",
             )
-        
+
         # Check window not expired
         now_ms = self._clock.now_ms()
         if window.is_expired(now_ms):
@@ -66,7 +66,7 @@ class SubmitPredictionUseCase:
                 success=False,
                 error=f"Window {window_id} has expired",
             )
-        
+
         # Check for duplicate prediction
         existing_predictions = await self._window_repo.list_predictions(window_id)
         if any(p.user_id == user_id for p in existing_predictions):
@@ -74,7 +74,7 @@ class SubmitPredictionUseCase:
                 success=False,
                 error=f"User {user_id} already submitted prediction",
             )
-        
+
         # Create and store prediction
         prediction = Prediction(
             window_id=window_id,
@@ -83,5 +83,5 @@ class SubmitPredictionUseCase:
             submitted_at_ms=now_ms,
         )
         await self._window_repo.add_prediction(window_id, prediction)
-        
+
         return SubmitPredictionResult(success=True)

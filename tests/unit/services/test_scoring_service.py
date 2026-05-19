@@ -1,6 +1,5 @@
 """Tests for ScoringService."""
 
-
 from src.domain.services.scoring_service import ScoringService
 
 

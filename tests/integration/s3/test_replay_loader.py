@@ -1,7 +1,7 @@
 """Tests for S3 Replay Loader."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -25,16 +25,16 @@ def loader(mock_s3_client):
         region="eu-central-1",
         enable_cache=True,
     )
-    
+
     # Create a mock client that acts as an async context manager
     mock_client_cm = AsyncMock()
     mock_client_cm.__aenter__ = AsyncMock(return_value=mock_s3_client)
     mock_client_cm.__aexit__ = AsyncMock(return_value=None)
-    
+
     # Patch the session.client to return the mock
     def mock_client(*args, **kwargs):
         return mock_client_cm
-    
+
     ldr._session.client = mock_client
     return ldr
 
@@ -87,32 +87,32 @@ async def test_load_events_from_s3(loader: ReplayLoader, mock_s3_client, sample_
     body_mock.read = AsyncMock(return_value=json.dumps(sample_events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events
     events = await loader.load_events("events.json")
-    
+
     # Verify S3 call
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="test-replay-bucket",
         Key="events.json",
     )
-    
+
     # Verify events
     assert len(events) == 3
     assert all(isinstance(e, MatchEvent) for e in events)
-    
+
     assert events[0].event_id == "evt-001"
     assert events[0].event_type == "KICK_OFF"
     assert events[0].minute == 0
     assert events[0].second == 0
-    
+
     assert events[1].event_id == "evt-002"
     assert events[1].event_type == "PASS"
     assert events[1].minute == 1
     assert events[1].second == 30
-    
+
     assert events[2].event_id == "evt-003"
     assert events[2].event_type == "GOAL"
     assert events[2].minute == 5
@@ -127,16 +127,16 @@ async def test_load_events_caches_result(loader: ReplayLoader, mock_s3_client, s
     body_mock.read = AsyncMock(return_value=json.dumps(sample_events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events twice
     events1 = await loader.load_events("events.json")
     events2 = await loader.load_events("events.json")
-    
+
     # S3 should only be called once (second call uses cache)
     assert mock_s3_client.get_object.call_count == 1
-    
+
     # Both results should be the same
     assert len(events1) == len(events2) == 3
     assert events1[0].event_id == events2[0].event_id
@@ -151,25 +151,25 @@ async def test_load_events_with_cache_disabled(mock_s3_client, sample_events_jso
         region="eu-central-1",
         enable_cache=False,
     )
-    
+
     # Mock client setup
     mock_client_cm = AsyncMock()
     mock_client_cm.__aenter__ = AsyncMock(return_value=mock_s3_client)
     mock_client_cm.__aexit__ = AsyncMock(return_value=None)
     loader._session.client = lambda *args, **kwargs: mock_client_cm
-    
+
     # Mock S3 response
     body_mock = AsyncMock()
     body_mock.read = AsyncMock(return_value=json.dumps(sample_events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events twice
     await loader.load_events("events.json")
     await loader.load_events("events.json")
-    
+
     # S3 should be called twice (no caching)
     assert mock_s3_client.get_object.call_count == 2
 
@@ -186,18 +186,18 @@ async def test_load_events_handles_optional_fields(loader: ReplayLoader, mock_s3
             # team, player, x_position, y_position, metadata are optional
         }
     ]
-    
+
     # Mock S3 response
     body_mock = AsyncMock()
     body_mock.read = AsyncMock(return_value=json.dumps(events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events
     events = await loader.load_events("events.json")
-    
+
     assert len(events) == 1
     assert events[0].event_id == "evt-001"
     assert events[0].team is None
@@ -230,18 +230,18 @@ async def test_load_events_skips_invalid_events(loader: ReplayLoader, mock_s3_cl
             "event_type": "PASS",
         },
     ]
-    
+
     # Mock S3 response
     body_mock = AsyncMock()
     body_mock.read = AsyncMock(return_value=json.dumps(events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events
     events = await loader.load_events("events.json")
-    
+
     # Only valid events should be loaded
     assert len(events) == 2
     assert events[0].event_id == "evt-001"
@@ -256,9 +256,9 @@ async def test_load_events_raises_on_invalid_json_format(loader: ReplayLoader, m
     body_mock.read = AsyncMock(return_value=b'{"not": "an array"}')
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Should raise ValueError
     with pytest.raises(RuntimeError, match="Failed to load events from S3"):
         await loader.load_events("events.json")
@@ -269,7 +269,7 @@ async def test_load_events_raises_on_s3_error(loader: ReplayLoader, mock_s3_clie
     """Test that S3 errors are wrapped in RuntimeError."""
     # Mock S3 error
     mock_s3_client.get_object.side_effect = Exception("S3 connection failed")
-    
+
     # Should raise RuntimeError
     with pytest.raises(RuntimeError, match="Failed to load events from S3"):
         await loader.load_events("events.json")
@@ -286,24 +286,24 @@ async def test_load_match_info_from_s3(loader: ReplayLoader, mock_s3_client):
         },
         "date": "2024-01-15",
     }
-    
+
     # Mock S3 response
     body_mock = AsyncMock()
     body_mock.read = AsyncMock(return_value=json.dumps(match_info).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load match info
     info = await loader.load_match_info("match_info.json")
-    
+
     # Verify S3 call
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="test-replay-bucket",
         Key="match_info.json",
     )
-    
+
     # Verify data
     assert info["match_id"] == "match-123"
     assert info["teams"]["home"] == "Team A"
@@ -315,7 +315,7 @@ async def test_load_match_info_raises_on_s3_error(loader: ReplayLoader, mock_s3_
     """Test that S3 errors are wrapped in RuntimeError."""
     # Mock S3 error
     mock_s3_client.get_object.side_effect = Exception("S3 connection failed")
-    
+
     # Should raise RuntimeError
     with pytest.raises(RuntimeError, match="Failed to load match info from S3"):
         await loader.load_match_info("match_info.json")
@@ -329,17 +329,17 @@ async def test_clear_cache(loader: ReplayLoader, mock_s3_client, sample_events_j
     body_mock.read = AsyncMock(return_value=json.dumps(sample_events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events to populate cache
     await loader.load_events("events.json")
     assert loader.get_cache_size() == 1
-    
+
     # Clear cache
     loader.clear_cache()
     assert loader.get_cache_size() == 0
-    
+
     # Next load should hit S3 again
     await loader.load_events("events.json")
     assert mock_s3_client.get_object.call_count == 2
@@ -353,16 +353,16 @@ async def test_get_cache_size(loader: ReplayLoader, mock_s3_client, sample_event
     body_mock.read = AsyncMock(return_value=json.dumps(sample_events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Initially empty
     assert loader.get_cache_size() == 0
-    
+
     # Load one key
     await loader.load_events("events1.json")
     assert loader.get_cache_size() == 1
-    
+
     # Load another key
     await loader.load_events("events2.json")
     assert loader.get_cache_size() == 2
@@ -376,7 +376,7 @@ async def test_loader_with_endpoint_url():
         region="eu-central-1",
         endpoint_url="http://localhost:4566",
     )
-    
+
     # Verify endpoint_url is stored
     assert loader._endpoint_url == "http://localhost:4566"
 
@@ -405,18 +405,18 @@ async def test_load_events_with_complex_metadata(loader: ReplayLoader, mock_s3_c
             },
         }
     ]
-    
+
     # Mock S3 response
     body_mock = AsyncMock()
     body_mock.read = AsyncMock(return_value=json.dumps(events_json).encode("utf-8"))
     body_mock.__aenter__ = AsyncMock(return_value=body_mock)
     body_mock.__aexit__ = AsyncMock(return_value=None)
-    
+
     mock_s3_client.get_object.return_value = {"Body": body_mock}
-    
+
     # Load events
     events = await loader.load_events("events.json")
-    
+
     assert len(events) == 1
     assert events[0].metadata["recipient"] == "player-2"
     assert events[0].metadata["nested"]["key1"] == "value1"

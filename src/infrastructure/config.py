@@ -115,8 +115,10 @@ class InfraConfig:
                 raise ConfigError(f"Required environment variable {key} is not set")
             try:
                 return int(value)
-            except ValueError:
-                raise ConfigError(f"Environment variable {key} must be an integer, got: {value}")
+            except ValueError as err:
+                raise ConfigError(
+                    f"Environment variable {key} must be an integer, got: {value}"
+                ) from err
 
         def get_float(key: str, default: float | None = None) -> float:
             """Get float environment variable."""
@@ -127,8 +129,10 @@ class InfraConfig:
                 raise ConfigError(f"Required environment variable {key} is not set")
             try:
                 return float(value)
-            except ValueError:
-                raise ConfigError(f"Environment variable {key} must be a float, got: {value}")
+            except ValueError as err:
+                raise ConfigError(
+                    f"Environment variable {key} must be a float, got: {value}"
+                ) from err
 
         def get_bool(key: str, default: bool = False) -> bool:
             """Get boolean environment variable."""
@@ -143,10 +147,10 @@ class InfraConfig:
             """Parse comma-separated integers."""
             try:
                 return tuple(int(x.strip()) for x in value.split(","))
-            except ValueError:
+            except ValueError as err:
                 raise ConfigError(
                     f"CLOSEST_PREDICTION_POINTS must be comma-separated integers, got: {value}"
-                )
+                ) from err
 
         # Parse closest prediction points
         closest_points_str = get_required("CLOSEST_PREDICTION_POINTS")

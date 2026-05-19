@@ -33,9 +33,7 @@ class Room:
     def __post_init__(self) -> None:
         """Validate room constraints."""
         if not (0 <= len(self.players) <= self.MAX_PLAYERS):
-            raise ValueError(
-                f"players count must be 0-{self.MAX_PLAYERS}, got {len(self.players)}"
-            )
+            raise ValueError(f"players count must be 0-{self.MAX_PLAYERS}, got {len(self.players)}")
 
         if self.status not in self.VALID_STATUSES:
             raise ValueError(f"status must be one of {self.VALID_STATUSES}, got {self.status}")

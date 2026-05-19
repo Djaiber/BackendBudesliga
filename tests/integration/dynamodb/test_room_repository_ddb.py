@@ -15,7 +15,7 @@ def mock_table():
     table.query = AsyncMock()
     table.put_item = AsyncMock()
     table.delete_item = AsyncMock()
-    
+
     # Mock batch_writer as a context manager
     batch_writer_mock = AsyncMock()
     batch_writer_mock.__aenter__ = AsyncMock(return_value=batch_writer_mock)
@@ -23,7 +23,7 @@ def mock_table():
     batch_writer_mock.put_item = AsyncMock()
     batch_writer_mock.delete_item = AsyncMock()
     table.batch_writer = MagicMock(return_value=batch_writer_mock)
-    
+
     return table
 
 
@@ -34,17 +34,17 @@ def repository(mock_table):
         table_name="test-table",
         region="eu-central-1",
     )
-    
+
     # Create a mock resource that acts as an async context manager
     mock_ddb = AsyncMock()
     mock_ddb.Table = AsyncMock(return_value=mock_table)
     mock_ddb.__aenter__ = AsyncMock(return_value=mock_ddb)
     mock_ddb.__aexit__ = AsyncMock(return_value=None)
-    
+
     # Patch the session.resource to return the mock directly (not a coroutine)
     def mock_resource(*args, **kwargs):
         return mock_ddb
-    
+
     repo._session.resource = mock_resource
     return repo
 
@@ -54,10 +54,10 @@ async def test_get_returns_none_when_room_not_found(repository: RoomRepositoryDD
     """Test get returns None for nonexistent room."""
     # Mock empty query response
     mock_table.query.return_value = {"Items": []}
-    
+
     room = await repository.get("nonexistent")
     assert room is None
-    
+
     # Verify query was called with correct PK
     mock_table.query.assert_called_once()
     call_kwargs = mock_table.query.call_args[1]
@@ -78,16 +78,16 @@ async def test_save_and_get_round_trip(repository: RoomRepositoryDDB, mock_table
         status="active",
         created_at=1000000,
     )
-    
+
     # Mock query for existing players (empty)
     mock_table.query.return_value = {"Items": []}
-    
+
     # Save
     await repository.save(room)
-    
+
     # Verify batch_writer was used
     assert mock_table.batch_writer.called
-    
+
     # Now mock get to return the saved room
     mock_table.query.return_value = {
         "Items": [
@@ -119,21 +119,21 @@ async def test_save_and_get_round_trip(repository: RoomRepositoryDDB, mock_table
             },
         ]
     }
-    
+
     # Get
     retrieved = await repository.get("room123")
-    
+
     # Verify
     assert retrieved is not None
     assert retrieved.room_id == "room123"
     assert retrieved.status == "active"
     assert retrieved.created_at == 1000000
     assert len(retrieved.players) == 2
-    
+
     # Check players
     player_ids = {p.user_id for p in retrieved.players}
     assert player_ids == {"user1", "user2"}
-    
+
     alice = next(p for p in retrieved.players if p.user_id == "user1")
     assert alice.name == "Alice"
     assert alice.score == 100
@@ -192,7 +192,7 @@ async def test_save_overwrites_existing_room(repository: RoomRepositoryDDB, mock
             ]
         },
     ]
-    
+
     # Save updated room with different players
     room2 = Room(
         room_id="room123",
@@ -204,10 +204,10 @@ async def test_save_overwrites_existing_room(repository: RoomRepositoryDDB, mock
         created_at=1000000,
     )
     await repository.save(room2)
-    
+
     # Get
     retrieved = await repository.get("room123")
-    
+
     # Verify new state
     assert retrieved is not None
     assert len(retrieved.players) == 2
@@ -265,10 +265,10 @@ async def test_list_by_status_returns_matching_rooms(repository: RoomRepositoryD
             ]
         },
     ]
-    
+
     # List active rooms
     active_rooms = await repository.list_by_status("active")
-    
+
     assert len(active_rooms) == 2
     room_ids = {r.room_id for r in active_rooms}
     assert room_ids == {"room1", "room2"}
@@ -309,14 +309,26 @@ async def test_list_by_status_sorted_by_created_at(repository: RoomRepositoryDDB
             ]
         },
         # Subsequent calls: get each room
-        {"Items": [{"PK": "ROOM#room2", "SK": "METADATA", "status": "active", "created_at": 1000000}]},
-        {"Items": [{"PK": "ROOM#room3", "SK": "METADATA", "status": "active", "created_at": 2000000}]},
-        {"Items": [{"PK": "ROOM#room1", "SK": "METADATA", "status": "active", "created_at": 3000000}]},
+        {
+            "Items": [
+                {"PK": "ROOM#room2", "SK": "METADATA", "status": "active", "created_at": 1000000}
+            ]
+        },
+        {
+            "Items": [
+                {"PK": "ROOM#room3", "SK": "METADATA", "status": "active", "created_at": 2000000}
+            ]
+        },
+        {
+            "Items": [
+                {"PK": "ROOM#room1", "SK": "METADATA", "status": "active", "created_at": 3000000}
+            ]
+        },
     ]
-    
+
     # List
     rooms = await repository.list_by_status("active")
-    
+
     # Verify sorted by created_at
     assert len(rooms) == 3
     assert rooms[0].room_id == "room2"  # created_at=1000000
@@ -329,7 +341,7 @@ async def test_add_player_appends_to_room(repository: RoomRepositoryDDB, mock_ta
     """Test add_player adds player without affecting others."""
     # Mock put_item
     mock_table.put_item.return_value = None
-    
+
     # Mock get to return room with two players
     mock_table.query.return_value = {
         "Items": [
@@ -359,16 +371,16 @@ async def test_add_player_appends_to_room(repository: RoomRepositoryDDB, mock_ta
             },
         ]
     }
-    
+
     # Add second player
     new_player = Player(user_id="user2", name="Bob", score=200, tier="Enthusiast", streak=1)
     updated_room = await repository.add_player("room123", new_player)
-    
+
     # Verify
     assert len(updated_room.players) == 2
     player_ids = {p.user_id for p in updated_room.players}
     assert player_ids == {"user1", "user2"}
-    
+
     # Verify put_item was called
     mock_table.put_item.assert_called_once()
 
@@ -378,7 +390,7 @@ async def test_remove_player_removes_one_player(repository: RoomRepositoryDDB, m
     """Test remove_player removes specified player without affecting others."""
     # Mock delete_item
     mock_table.delete_item.return_value = None
-    
+
     # Mock get to return room with one player
     mock_table.query.return_value = {
         "Items": [
@@ -399,15 +411,15 @@ async def test_remove_player_removes_one_player(repository: RoomRepositoryDDB, m
             },
         ]
     }
-    
+
     # Remove one player
     updated_room = await repository.remove_player("room123", "user1")
-    
+
     # Verify
     assert len(updated_room.players) == 1
     assert updated_room.players[0].user_id == "user2"
     assert updated_room.players[0].name == "Bob"
-    
+
     # Verify delete_item was called
     mock_table.delete_item.assert_called_once()
 
@@ -423,10 +435,10 @@ async def test_delete_removes_entire_room(repository: RoomRepositoryDDB, mock_ta
             {"PK": "ROOM#room123", "SK": "PLAYER#user2"},
         ]
     }
-    
+
     # Delete
     await repository.delete("room123")
-    
+
     # Verify batch_writer was used
     assert mock_table.batch_writer.called
 
@@ -436,7 +448,7 @@ async def test_delete_nonexistent_room_is_noop(repository: RoomRepositoryDDB, mo
     """Test deleting nonexistent room doesn't raise error."""
     # Mock empty query response
     mock_table.query.return_value = {"Items": []}
-    
+
     # Should not raise
     await repository.delete("nonexistent")
 
@@ -446,24 +458,26 @@ async def test_add_player_to_nonexistent_room_raises(repository: RoomRepositoryD
     """Test add_player raises ValueError for nonexistent room."""
     # Mock put_item
     mock_table.put_item.return_value = None
-    
+
     # Mock get to return None (room not found)
     mock_table.query.return_value = {"Items": []}
-    
+
     player = Player(user_id="user1", name="Alice", score=0, tier="Dummies", streak=0)
-    
+
     with pytest.raises(ValueError, match="Room nonexistent not found"):
         await repository.add_player("nonexistent", player)
 
 
 @pytest.mark.asyncio
-async def test_remove_player_from_nonexistent_room_raises(repository: RoomRepositoryDDB, mock_table):
+async def test_remove_player_from_nonexistent_room_raises(
+    repository: RoomRepositoryDDB, mock_table
+):
     """Test remove_player raises ValueError for nonexistent room."""
     # Mock delete_item
     mock_table.delete_item.return_value = None
-    
+
     # Mock get to return None (room not found)
     mock_table.query.return_value = {"Items": []}
-    
+
     with pytest.raises(ValueError, match="Room nonexistent not found"):
         await repository.remove_player("nonexistent", "user1")

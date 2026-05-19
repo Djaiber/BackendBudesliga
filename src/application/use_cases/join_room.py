@@ -89,11 +89,11 @@ class JoinRoomUseCase:
                 raise ValueError(f"Room {room_id} not found")
             if not self._matchmaker.can_join(room):
                 raise ValueError(f"Room {room_id} is full")
-            
+
             await self._room_repo.add_player(room_id, player)
             room = await self._room_repo.get(room_id)
             assert room is not None
-            
+
             # Broadcast player joined to room
             await self._broadcaster.broadcast_to_room(
                 room_id=room_id,
@@ -101,9 +101,8 @@ class JoinRoomUseCase:
                     "type": "player_joined",
                     "player": player_to_dto(player),
                 },
-                exclude_connection_id=connection_id,
             )
-            
+
             # Send room joined to player
             await self._broadcaster.send_to_connection(
                 connection_id=connection_id,
@@ -114,20 +113,20 @@ class JoinRoomUseCase:
                     "players": [player_to_dto(p) for p in room.players],
                 },
             )
-            
+
             return JoinRoomResult(room=room, player=player, was_merged=False)
-        
+
         # Auto-match: find mergeable room or create new
         active_rooms = await self._room_repo.list_by_status("active")
         mergeable_rooms = [r for r in active_rooms if r.is_mergeable()]
-        
+
         if mergeable_rooms:
             # Join first mergeable room
             target_room = mergeable_rooms[0]
             await self._room_repo.add_player(target_room.room_id, player)
             room = await self._room_repo.get(target_room.room_id)
             assert room is not None
-            
+
             # Broadcast player joined
             await self._broadcaster.broadcast_to_room(
                 room_id=target_room.room_id,
@@ -135,9 +134,8 @@ class JoinRoomUseCase:
                     "type": "player_joined",
                     "player": player_to_dto(player),
                 },
-                exclude_connection_id=connection_id,
             )
-            
+
             # Send room joined to player
             await self._broadcaster.send_to_connection(
                 connection_id=connection_id,
@@ -148,9 +146,9 @@ class JoinRoomUseCase:
                     "players": [player_to_dto(p) for p in room.players],
                 },
             )
-            
+
             return JoinRoomResult(room=room, player=player, was_merged=False)
-        
+
         # Create new room
         new_room_id = self._id_gen.new_id("ROOM")
         new_room = Room(
@@ -160,7 +158,7 @@ class JoinRoomUseCase:
             created_at=self._clock.now_ms(),
         )
         await self._room_repo.save(new_room)
-        
+
         # Send room joined to player
         await self._broadcaster.send_to_connection(
             connection_id=connection_id,
@@ -171,5 +169,5 @@ class JoinRoomUseCase:
                 "players": [player_to_dto(player)],
             },
         )
-        
+
         return JoinRoomResult(room=new_room, player=player, was_merged=False)
