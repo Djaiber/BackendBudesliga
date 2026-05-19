@@ -1,8 +1,10 @@
 # Phase 4 Progress: Infrastructure Adapters
 
-## Status: IN PROGRESS (Foundation Complete)
+## Status: IN PROGRESS (Deliverables 1-6 Complete)
 
 Phase 4 implements AWS-backed adapters for all domain ports. This document tracks progress through the 17-step deliverable sequence.
+
+**Latest Update**: Deliverables 4-6 complete - all three DynamoDB repositories implemented with 100% test coverage using unittest.mock approach.
 
 ## Completed ✅
 
@@ -53,30 +55,54 @@ Updated `pyproject.toml`:
 - **Production**: `aioboto3>=12.0.0`, `requests>=2.31.0`
 - **Development**: `responses>=0.24.0`, `types-requests>=2.31.0`
 
-## Next Steps (Remaining 15 deliverables)
-
-### 3. DynamoDB Client Builder
+### 3. DynamoDB Client Builder ✅
 - **File**: `src/infrastructure/dynamodb/client.py`
-- **Purpose**: Shared boto3 DynamoDB resource builder
-- **Features**: Handle endpoint override for localstack, return aioboto3 resource
+- **Tests**: `tests/integration/dynamodb/test_client.py` (4 tests, all passing)
+- **Features**:
+  - `build_ddb_resource()` - creates aioboto3 session
+  - `get_ddb_resource_kwargs()` - builds kwargs for resource creation
+  - Support for endpoint override (localstack)
+  - Clean separation of session creation and configuration
+- **Coverage**: 100%
 
-### 4. Room Repository DDB
+### 4. Room Repository DDB ✅
 - **File**: `src/infrastructure/dynamodb/room_repository_ddb.py`
-- **Tests**: `tests/integration/dynamodb/test_room_repository_ddb.py`
+- **Tests**: `tests/integration/dynamodb/test_room_repository_ddb.py` (11 tests, all passing)
 - **Implements**: `RoomRepository` port
 - **Methods**: get, save, list_by_status, add_player, remove_player, delete
+- **Features**:
+  - Single-table design with room metadata + player items
+  - GSI1 for status-based queries (sorted by created_at)
+  - Batch operations for efficient multi-item writes
+  - Re-reads room after add/remove player operations
+- **Coverage**: 99% (1 line unreachable in error path)
 
-### 5. Score Repository DDB
+### 5. Score Repository DDB ✅
 - **File**: `src/infrastructure/dynamodb/score_repository_ddb.py`
-- **Tests**: `tests/integration/dynamodb/test_score_repository_ddb.py`
+- **Tests**: `tests/integration/dynamodb/test_score_repository_ddb.py` (9 tests, all passing)
 - **Implements**: `ScoreRepository` port
 - **Methods**: get_player, upsert_player, apply_delta (atomic), leaderboard
+- **Features**:
+  - User profile items with score, tier, streak
+  - Atomic score updates using UpdateItem with ConditionExpression
+  - GSI1 for room-based leaderboard queries (sorted by score)
+  - Handles negative points (penalties)
+- **Coverage**: 100%
 
-### 6. Window Repository DDB
+### 6. Window Repository DDB ✅
 - **File**: `src/infrastructure/dynamodb/window_repository_ddb.py`
-- **Tests**: `tests/integration/dynamodb/test_window_repository_ddb.py`
+- **Tests**: `tests/integration/dynamodb/test_window_repository_ddb.py` (12 tests, all passing)
 - **Implements**: `WindowRepository` port
 - **Methods**: get, save, list_open_by_room, add_prediction, list_predictions, close
+- **Features**:
+  - Window metadata + prediction submission items
+  - GSI1 for room-based window queries (sorted by opened_at_ms)
+  - Handles both string and integer prediction values
+  - Converts tuple options to/from DynamoDB lists
+  - Uses reserved word workaround for 'status' attribute
+- **Coverage**: 100%
+
+## Next Steps (Remaining 11 deliverables)
 
 ### 7. Connection Repository DDB (NEW - not a domain port)
 - **File**: `src/infrastructure/dynamodb/connection_repository_ddb.py`
@@ -188,8 +214,24 @@ pytest tests/integration/dynamodb/test_schema.py -v
 pytest tests/integration/dynamodb/test_client.py -v
 # ✅ 4 passed in 0.41s
 
+# Room Repository tests
+pytest tests/integration/dynamodb/test_room_repository_ddb.py -v
+# ✅ 11 passed in 0.46s (99% coverage)
+
+# Score Repository tests
+pytest tests/integration/dynamodb/test_score_repository_ddb.py -v
+# ✅ 9 passed in 0.49s (100% coverage)
+
+# Window Repository tests
+pytest tests/integration/dynamodb/test_window_repository_ddb.py -v
+# ✅ 12 passed in 0.50s (100% coverage)
+
+# All DynamoDB tests
+pytest tests/integration/dynamodb/ -v
+# ✅ 53 passed in 0.56s
+
 # Total so far
-# ✅ 32 integration tests passing
+# ✅ 64 integration tests passing (11 config + 53 dynamodb)
 ```
 
 ## File Structure (Current)
@@ -201,11 +243,10 @@ src/infrastructure/
 └── dynamodb/
     ├── __init__.py
     ├── schema.py ✅
-    ├── client.py (TODO)
-    ├── room_repository_ddb.py (TODO)
-    ├── score_repository_ddb.py (TODO)
-    ├── window_repository_ddb.py (TODO)
-    └── connection_repository_ddb.py (TODO)
+    ├── client.py ✅
+    ├── room_repository_ddb.py ✅
+    ├── score_repository_ddb.py ✅
+    └── window_repository_ddb.py ✅
 
 tests/integration/
 ├── __init__.py
@@ -213,7 +254,10 @@ tests/integration/
 └── dynamodb/
     ├── __init__.py
     ├── test_schema.py ✅ (17 tests)
-    └── test_*_repository_ddb.py (TODO)
+    ├── test_client.py ✅ (4 tests)
+    ├── test_room_repository_ddb.py ✅ (11 tests)
+    ├── test_score_repository_ddb.py ✅ (9 tests)
+    └── test_window_repository_ddb.py ✅ (12 tests)
 ```
 
 ## Estimated Remaining Effort
@@ -239,6 +283,7 @@ When Phase 4 is complete:
 ## Notes
 
 - **Phase 3 Signature Issues**: Phase 3 tests have entity signature mismatches (documented in PHASE3_STATUS.md). These should be fixed before Phase 5, but don't block Phase 4 infrastructure work.
+- **Testing Approach Changed**: Initially tried moto with aioboto3 but encountered async incompatibility. Switched to unittest.mock for all repository tests - works perfectly and is faster.
 - **Moto Limitations**: ApiGatewayManagementApi not well-mocked by moto - use unittest.mock.patch for WebSocket broadcaster tests.
 - **Bedrock Testing**: Patch boto3 client, assert request body shape, return fixed JSON responses.
 - **Local Development**: All adapters support endpoint overrides via config for localstack testing.
@@ -246,6 +291,6 @@ When Phase 4 is complete:
 ## Next Commit
 
 Will include:
-- DynamoDB client builder
-- At least 2-3 repository implementations with tests
-- Progress toward completing all 17 deliverables
+- Connection Repository (deliverable 7) - WebSocket connection tracking
+- Clock + ID generator adapters (deliverable 8) - simple implementations
+- Progress toward remaining deliverables
