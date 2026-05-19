@@ -30,7 +30,7 @@ class SubmitPredictionUseCase:
     async def execute(
         self,
         window_id: str,
-        player_id: str,
+        user_id: str,
         value: str | int,
     ) -> SubmitPredictionResult:
         """
@@ -38,7 +38,7 @@ class SubmitPredictionUseCase:
 
         Args:
             window_id: Prediction window ID
-            player_id: Player submitting prediction
+            user_id: User submitting prediction
             value: Prediction value (string or int depending on game type)
 
         Returns:
@@ -69,15 +69,16 @@ class SubmitPredictionUseCase:
         
         # Check for duplicate prediction
         existing_predictions = await self._window_repo.list_predictions(window_id)
-        if any(p.player_id == player_id for p in existing_predictions):
+        if any(p.user_id == user_id for p in existing_predictions):
             return SubmitPredictionResult(
                 success=False,
-                error=f"Player {player_id} already submitted prediction",
+                error=f"User {user_id} already submitted prediction",
             )
         
         # Create and store prediction
         prediction = Prediction(
-            player_id=player_id,
+            window_id=window_id,
+            user_id=user_id,
             value=value,
             submitted_at_ms=now_ms,
         )
