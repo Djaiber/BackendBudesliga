@@ -38,6 +38,16 @@ Phase 4 implements AWS-backed adapters for all domain ports. This document track
   - Room queries: `GSI1_PK=ROOM#<room_id>, GSI1_SK=<created_at_ms>`
 - **Coverage**: 100%
 
+### 3. DynamoDB Client Builder (client.py + tests) ✅
+- **File**: `src/infrastructure/dynamodb/client.py`
+- **Tests**: `tests/integration/dynamodb/test_client.py` (4 tests, all passing)
+- **Features**:
+  - `build_ddb_resource()` - creates aioboto3 session
+  - `get_ddb_resource_kwargs()` - builds kwargs for resource creation
+  - Support for endpoint override (localstack)
+  - Clean separation of session creation and configuration
+- **Coverage**: 100%
+
 ### Dependencies Added ✅
 Updated `pyproject.toml`:
 - **Production**: `aioboto3>=12.0.0`, `requests>=2.31.0`
@@ -174,8 +184,12 @@ pytest tests/integration/test_config.py -v
 pytest tests/integration/dynamodb/test_schema.py -v
 # ✅ 17 passed in 0.17s
 
+# Client tests
+pytest tests/integration/dynamodb/test_client.py -v
+# ✅ 4 passed in 0.41s
+
 # Total so far
-# ✅ 28 integration tests passing
+# ✅ 32 integration tests passing
 ```
 
 ## File Structure (Current)
