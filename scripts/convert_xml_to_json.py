@@ -116,6 +116,39 @@ def parse_match_time(match_time_str: str | None) -> tuple[int, int]:
         return (0, 0)
 
 
+_EVENT_TYPE_MAP: dict[str, str] = {
+    "Play": "PLAY",
+    "Pass": "PASS",
+    "Cross": "CROSS",
+    "ShotAtGoal": "SHOT",
+    "Goal": "GOAL",
+    "GoalKick": "GOAL_KICK",
+    "CornerKick": "CORNER_KICK",
+    "ThrowIn": "THROW_IN",
+    "FreeKick": "FREE_KICK",
+    "TacklingGame": "FOUL",
+    "Foul": "FOUL",
+    "Caution": "YELLOW",
+    "RedCard": "RED",
+    "Substitution": "SUB",
+    "OtherBallAction": "OTHER_BALL_ACTION",
+    "KickOff": "KICK_OFF",
+    "FinalWhistle": "FINAL_WHISTLE",
+    "AdditionalTimeDisplayed": "OTHER",
+    "Penalty": "SHOT",
+    "Offside": "OTHER",
+    "VideoAssistantAction": "OTHER",
+    "OtherPlayerAction": "OTHER",
+    "BallClaiming": "OTHER",
+    "Run": "OTHER",
+    "Nutmeg": "OTHER",
+    "SpectacularPlay": "OTHER",
+    "PlayerNotSentOff": "OTHER",
+    "RefereeBall": "OTHER",
+    "Delete": "DELETE",
+}
+
+
 def normalize_event_type(elem: ET.Element) -> str:
     """
     Extract and normalize event type from XML element.
@@ -124,45 +157,26 @@ def normalize_event_type(elem: ET.Element) -> str:
     1. Child element tag (Play, ShotAtGoal, GoalKick, etc.)
     2. Element tag itself
     """
-    # Check for child elements first
     for child in elem:
         tag = child.tag
-        if tag in [
-            "Play",
-            "ShotAtGoal",
-            "GoalKick",
-            "CornerKick",
-            "ThrowIn",
-            "FreeKick",
-            "TacklingGame",
-            "Foul",
-            "Caution",
-            "Goal",
-            "OtherBallAction",
-            "Delete",
-            "FinalWhistle",
-            "AdditionalTimeDisplayed",
-        ]:
-            # For Play, check if it's a Pass or Cross
-            if tag == "Play":
-                for subchild in child:
-                    if subchild.tag in ["Pass", "Cross"]:
-                        return subchild.tag.upper()
-                return "PLAY"
+        if tag == "Play":
+            for subchild in child:
+                if subchild.tag in ["Pass", "Cross"]:
+                    return _EVENT_TYPE_MAP[subchild.tag]
+            return _EVENT_TYPE_MAP["Play"]
 
-            # For ShotAtGoal, check outcome
-            if tag == "ShotAtGoal":
-                for subchild in child:
-                    if subchild.tag in ["Goal", "ShotWide", "BlockedShot", "ShotSaved"]:
-                        if subchild.tag == "Goal":
-                            return "GOAL"
-                        return "SHOT"
-                return "SHOT"
+        if tag == "ShotAtGoal":
+            for subchild in child:
+                if subchild.tag == "Goal":
+                    return _EVENT_TYPE_MAP["Goal"]
+                if subchild.tag in ["ShotWide", "BlockedShot", "ShotSaved"]:
+                    return _EVENT_TYPE_MAP["ShotAtGoal"]
+            return _EVENT_TYPE_MAP["ShotAtGoal"]
 
-            return tag.upper()
+        if tag in _EVENT_TYPE_MAP:
+            return _EVENT_TYPE_MAP[tag]
 
-    # Fallback to element tag
-    return elem.tag.upper()
+    return _EVENT_TYPE_MAP.get(elem.tag, "OTHER")
 
 
 def extract_event_metadata(elem: ET.Element) -> dict[str, Any]:
@@ -374,6 +388,29 @@ def parse_match_info_xml(xml_path: Path) -> MatchInfo | None:
         return None
 
 
+def _parse_game_time_to_minute(time_str: str | None) -> int | None:
+    """Parse a KPI GameTime/EndGameTime string into a match minute."""
+    if not time_str:
+        return None
+
+    parts = time_str.split(":")
+    if len(parts) != 3:
+        return None
+
+    try:
+        half = int(parts[0])
+        minute = int(parts[1])
+        second = int(parts[2])
+    except ValueError:
+        return None
+
+    total_seconds = minute * 60 + second
+    if half == 1:
+        total_seconds += 45 * 60
+
+    return total_seconds // 60
+
+
 def parse_kpi_xml(xml_path: Path) -> dict[int, dict[str, Any]]:
     """Parse kpi_data_Bayern_Hamburg.xml and return KPI snapshots by minute."""
     print(f"Parsing KPI data from {xml_path}...")
@@ -384,7 +421,6 @@ def parse_kpi_xml(xml_path: Path) -> dict[int, dict[str, Any]]:
         # Read file and skip any comment lines at the beginning
         with open(xml_path, encoding="utf-8") as f:
             content = f.read()
-            # Remove leading comment lines
             lines = content.split("\n")
             xml_start = 0
             for i, line in enumerate(lines):
@@ -400,23 +436,28 @@ def parse_kpi_xml(xml_path: Path) -> dict[int, dict[str, Any]]:
         tree = ET.parse(xml_file)
         root = tree.getroot()
 
-        # Find all KPI elements (structure may vary)
         for elem in root.iter():
-            # Look for elements with minute/time attributes
-            minute_str = elem.get("Minute") or elem.get("minute") or elem.get("Time")
-            if minute_str:
-                try:
-                    minute = int(minute_str)
-                    if minute not in kpi_data:
-                        kpi_data[minute] = {}
+            minute = _parse_game_time_to_minute(elem.get("GameTime"))
+            if minute is None:
+                minute = _parse_game_time_to_minute(elem.get("EndGameTime"))
+            if minute is None:
+                continue
 
-                    # Store all attributes for this minute
-                    for key, value in elem.attrib.items():
-                        if key.lower() not in ["minute", "time"]:
-                            kpi_data[minute][key] = value
+            if minute not in kpi_data:
+                kpi_data[minute] = {
+                    "event_count": 0,
+                    "tag_counts": {},
+                }
 
-                except ValueError:
+            kpi_data[minute]["event_count"] += 1
+            tag_counts = kpi_data[minute]["tag_counts"]
+            tag_counts[elem.tag] = tag_counts.get(elem.tag, 0) + 1
+
+            for key, value in elem.attrib.items():
+                if key in {"GameTime", "EndGameTime", "SyncedEventTime"}:
                     continue
+                if key not in kpi_data[minute]:
+                    kpi_data[minute][key] = value
 
         print(f"Parsed KPI data for {len(kpi_data)} minutes")
         return kpi_data

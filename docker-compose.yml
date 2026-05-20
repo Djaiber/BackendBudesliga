@@ -4,16 +4,15 @@ services:
   localstack:
     image: localstack/localstack:latest
     ports:
-      - "4566:4566"  # LocalStack Gateway
-      - "4510-4559:4510-4559"  # External services port range
+      - "4566:4566"
+      - "4510-4559:4510-4559"
     environment:
       - SERVICES=dynamodb,s3,events,apigateway,lambda
       - DEBUG=1
-      - DATA_DIR=/tmp/localstack/data
       - LAMBDA_EXECUTOR=docker
       - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
-      - "./localstack-data:/tmp/localstack"
+      - "./localstack-data:/var/lib/localstack"   # ← ruta estándar de LocalStack
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:
       - connected-arena

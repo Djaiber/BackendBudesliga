@@ -71,6 +71,59 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+_EVENT_TYPE_MAP: dict[str, str] = {
+    "TACKLINGGAME": "FOUL",
+    "KICKOFF": "KICK_OFF",
+    "GOALKICK": "GOAL_KICK",
+    "THROWIN": "THROW_IN",
+    "FREEKICK": "FREE_KICK",
+    "CROSS": "CROSS",
+    "PASS": "PASS",
+    "SHOTATGOAL": "SHOT",
+    "GOAL": "GOAL",
+    "CORNERKICK": "CORNER_KICK",
+    "FOUL": "FOUL",
+    "CAUTION": "YELLOW",
+    "YELLOW": "YELLOW",
+    "RED": "RED",
+    "SUBSTITUTION": "SUB",
+    "OTHERBALLACTION": "OTHER_BALL_ACTION",
+    "KICK_OFF": "KICK_OFF",
+    "FINALWHISTLE": "FINAL_WHISTLE",
+    "ADDITIONALTIMEDISPLAYED": "OTHER",
+}
+
+
+_VALID_EVENT_TYPES: set[str] = {
+    "PASS",
+    "SHOT",
+    "GOAL",
+    "CORNER_KICK",
+    "FOUL",
+    "YELLOW",
+    "RED",
+    "SUB",
+    "THROW_IN",
+    "GOAL_KICK",
+    "FREE_KICK",
+    "TACKLING_GAME",
+    "FINAL_WHISTLE",
+    "KICK_OFF",
+    "OTHER_BALL_ACTION",
+    "EVENT",
+    "OTHER",
+    "PLAY",
+    "CROSS",
+}
+
+
+def _normalize_json_event_type(raw_type: str) -> str:
+    event_type = raw_type.strip().upper()
+    if event_type in _VALID_EVENT_TYPES:
+        return event_type
+    return _EVENT_TYPE_MAP.get(event_type, "OTHER")
+
+
 def _load_events_from_json(path: str) -> list[Any]:
     """Load events from a pre-converted JSON file."""
     with open(path, encoding="utf-8") as fh:
@@ -89,20 +142,22 @@ async def _run(speed: int, events_path: str | None) -> int:
         except (FileNotFoundError, json.JSONDecodeError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
-        events = [
-            MatchEvent(
-                event_id=e["event_id"],
-                minute=e["minute"],
-                second=e["second"],
-                event_type=e["event_type"],
-                team=e.get("team") or "",
-                player=e.get("player"),
-                x_position=e.get("x_position"),
-                y_position=e.get("y_position"),
-                metadata=e.get("metadata", {}),
+        events = []
+        for e in raw:
+            event_type = _normalize_json_event_type(str(e.get("event_type", "")))
+            events.append(
+                MatchEvent(
+                    event_id=e["event_id"],
+                    minute=e["minute"],
+                    second=e["second"],
+                    event_type=event_type,
+                    team=e.get("team") or "",
+                    player=e.get("player"),
+                    x_position=e.get("x_position"),
+                    y_position=e.get("y_position"),
+                    metadata=e.get("metadata", {}),
+                )
             )
-            for e in raw
-        ]
     else:
         xml_path = str(_DEFAULT_EVENTS_XML)
         print(f"Parsing events from XML: {xml_path}")
