@@ -74,6 +74,7 @@ class ReplayEngine:
                 "event_type": event.event_type,
                 "team": event.team,
                 "player": event.player,
+                "metadata": event.metadata,
             }
             await self._publisher.publish(self._source, self._detail_type, payload)
             logger.debug("Published event %s at %d:%02d", event.event_id, event.minute, event.second)

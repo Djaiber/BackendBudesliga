@@ -411,60 +411,57 @@ def _parse_game_time_to_minute(time_str: str | None) -> int | None:
     return total_seconds // 60
 
 
-def parse_kpi_xml(xml_path: Path) -> dict[int, dict[str, Any]]:
-    """Parse kpi_data_Bayern_Hamburg.xml and return KPI snapshots by minute."""
+def parse_kpi_xml(xml_path: Path) -> tuple[dict[str, dict[str, Any]], set[str]]:
+    """Parse kpi_data_Bayern_Hamburg.xml.
+
+    Returns:
+        (kpi_by_event_id, goal_event_ids)
+        kpi_by_event_id: EventId → KPI attributes dict
+        goal_event_ids:  set of EventIds where ShotResult == 'successfulShot'
+    """
     print(f"Parsing KPI data from {xml_path}...")
 
-    kpi_data: dict[int, dict[str, Any]] = {}
+    kpi_by_event_id: dict[str, dict[str, Any]] = {}
+    goal_event_ids: set[str] = set()
 
     try:
-        # Read file and skip any comment lines at the beginning
         with open(xml_path, encoding="utf-8") as f:
             content = f.read()
-            lines = content.split("\n")
-            xml_start = 0
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                if (stripped.startswith("<?xml") or stripped.startswith("<")) and not stripped.startswith("<!--"):
-                    xml_start = i
-                    break
-            content = "\n".join(lines[xml_start:])
+        lines = content.split("\n")
+        xml_start = 0
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if (stripped.startswith("<?xml") or stripped.startswith("<")) and not stripped.startswith("<!--"):
+                xml_start = i
+                break
+        content = "\n".join(lines[xml_start:])
 
         from io import StringIO
 
-        xml_file = StringIO(content)
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-
-        for elem in root.iter():
-            minute = _parse_game_time_to_minute(elem.get("GameTime"))
-            if minute is None:
-                minute = _parse_game_time_to_minute(elem.get("EndGameTime"))
-            if minute is None:
+        for _, elem in ET.iterparse(StringIO(content), events=("end",)):
+            event_id = elem.get("EventId")
+            if not event_id:
                 continue
 
-            if minute not in kpi_data:
-                kpi_data[minute] = {
-                    "event_count": 0,
-                    "tag_counts": {},
-                }
+            attribs: dict[str, Any] = {
+                k: v for k, v in elem.attrib.items()
+                if k not in {"SyncedEventTime"}
+            }
+            attribs["_tag"] = elem.tag
 
-            kpi_data[minute]["event_count"] += 1
-            tag_counts = kpi_data[minute]["tag_counts"]
-            tag_counts[elem.tag] = tag_counts.get(elem.tag, 0) + 1
+            # Merge: keep richer entry if EventId seen before
+            if event_id not in kpi_by_event_id or len(attribs) > len(kpi_by_event_id[event_id]):
+                kpi_by_event_id[event_id] = attribs
 
-            for key, value in elem.attrib.items():
-                if key in {"GameTime", "EndGameTime", "SyncedEventTime"}:
-                    continue
-                if key not in kpi_data[minute]:
-                    kpi_data[minute][key] = value
+            if elem.get("ShotResult") == "successfulShot":
+                goal_event_ids.add(event_id)
 
-        print(f"Parsed KPI data for {len(kpi_data)} minutes")
-        return kpi_data
+        print(f"Parsed KPI data: {len(kpi_by_event_id)} entries, {len(goal_event_ids)} goals")
+        return kpi_by_event_id, goal_event_ids
 
     except ET.ParseError as e:
         print(f"Error parsing KPI XML: {e}", file=sys.stderr)
-        return {}
+        return {}, set()
 
 
 def main() -> int:
@@ -492,11 +489,8 @@ def main() -> int:
     # Create output directory
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Parse events
-    events = parse_events_xml(events_xml)
-    if not events:
-        print("ERROR: No events parsed", file=sys.stderr)
-        return 1
+    # Parse KPI first — goal IDs are needed to fix event types
+    kpi_by_event_id, goal_event_ids = parse_kpi_xml(kpi_xml)
 
     # Parse match info
     match_info = parse_match_info_xml(match_info_xml)
@@ -504,8 +498,16 @@ def main() -> int:
         print("ERROR: Could not parse match info", file=sys.stderr)
         return 1
 
-    # Parse KPI data
-    kpi_data = parse_kpi_xml(kpi_xml)
+    # Parse events, promoting SHOT→GOAL where KPI says successfulShot
+    events = parse_events_xml(events_xml)
+    if not events:
+        print("ERROR: No events parsed", file=sys.stderr)
+        return 1
+    for ev in events:
+        if ev.event_type == "SHOT" and ev.event_id in goal_event_ids:
+            ev.event_type = "GOAL"
+    goal_count = sum(1 for ev in events if ev.event_type == "GOAL")
+    print(f"Goals marked: {goal_count} (score in match_info: {match_info.final_score})")
 
     # Write output files
     print("\nWriting output files...")
@@ -513,17 +515,17 @@ def main() -> int:
     events_output = OUTPUT_DIR / "events.json"
     with open(events_output, "w", encoding="utf-8") as f:
         json.dump([asdict(e) for e in events], f, indent=2, ensure_ascii=False)
-    print(f"  ✓ {events_output} ({len(events)} events)")
+    print(f"  OK {events_output} ({len(events)} events, {goal_count} goals)")
 
     match_info_output = OUTPUT_DIR / "match_info.json"
     with open(match_info_output, "w", encoding="utf-8") as f:
         json.dump(asdict(match_info), f, indent=2, ensure_ascii=False)
-    print(f"  ✓ {match_info_output}")
+    print(f"  OK {match_info_output}")
 
     kpi_output = OUTPUT_DIR / "kpi.json"
     with open(kpi_output, "w", encoding="utf-8") as f:
-        json.dump(kpi_data, f, indent=2, ensure_ascii=False)
-    print(f"  ✓ {kpi_output} ({len(kpi_data)} minute snapshots)")
+        json.dump(kpi_by_event_id, f, indent=2, ensure_ascii=False)
+    print(f"  OK {kpi_output} ({len(kpi_by_event_id)} event KPI entries)")
 
     print("\n" + "=" * 60)
     print("Conversion complete!")
