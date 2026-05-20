@@ -52,6 +52,7 @@ class ConnectionRepositoryDDB:
         user_id: str,
         room_id: str,
         connected_at_ms: int,
+        user_name: str = "",
     ) -> None:
         """
         Store a WebSocket connection.
@@ -59,8 +60,9 @@ class ConnectionRepositoryDDB:
         Args:
             conn_id: API Gateway connection ID
             user_id: User identifier
-            room_id: Room identifier
+            room_id: Room identifier (empty string if not yet in a room)
             connected_at_ms: Connection timestamp in epoch milliseconds
+            user_name: Display name (optional, set from Cognito claims)
         """
         async with self._session.resource("dynamodb", **self._resource_kwargs) as ddb:
             table = await ddb.Table(self._table_name)
@@ -74,6 +76,7 @@ class ConnectionRepositoryDDB:
                     "SK": schema.conn_meta_sk(),
                     "conn_id": conn_id,
                     "user_id": user_id,
+                    "user_name": user_name,
                     "room_id": room_id,
                     "connected_at_ms": connected_at_ms,
                     "ttl": ttl,
@@ -109,6 +112,7 @@ class ConnectionRepositoryDDB:
             return {
                 "conn_id": item["conn_id"],
                 "user_id": item["user_id"],
+                "user_name": item.get("user_name", ""),
                 "room_id": item["room_id"],
                 "connected_at_ms": int(item["connected_at_ms"]),
             }

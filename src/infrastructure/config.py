@@ -82,6 +82,7 @@ class InfraConfig:
 
     # Local Development
     local_mode: bool
+    accept_any_token: bool
 
     @classmethod
     def from_env(cls) -> "InfraConfig":
@@ -211,4 +212,5 @@ class InfraConfig:
             log_format=get_optional("LOG_FORMAT", "json"),
             # Local Development
             local_mode=get_bool("LOCAL_MODE", False),
+            accept_any_token=get_bool("ACCEPT_ANY_TOKEN", False),
         )

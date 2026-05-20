@@ -66,3 +66,17 @@ docker-down: ## Stop localstack
 
 docker-logs: ## Show localstack logs
 	docker-compose logs -f
+
+package-lambdas: ## Package each handler into a deployable ZIP
+	mkdir -p dist
+	for handler in connect disconnect default replay_event game_engine_tick room_merger; do \
+		zip -r dist/$$handler.zip src/ pyproject.toml; \
+	done
+
+invoke-local-connect: ## Invoke $connect handler locally with a dev token
+	python -c "import json; from src.interfaces.websocket_handlers.connect import handler; \
+		print(json.dumps(handler({'requestContext': {'connectionId': 'local-test'}, 'queryStringParameters': {'token': 'dev'}}, None), indent=2))"
+
+invoke-local-disconnect: ## Invoke $disconnect handler locally
+	python -c "import json; from src.interfaces.websocket_handlers.disconnect import handler; \
+		print(json.dumps(handler({'requestContext': {'connectionId': 'local-test'}}, None), indent=2))"
