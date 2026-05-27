@@ -38,7 +38,8 @@ def _get_replay_loader() -> ReplayLoader:
     if _replay_loader is None:
         bucket = os.environ.get("REPLAY_BUCKET", "bundesliga-replay-data")
         region = container["config"].aws_region
-        _replay_loader = ReplayLoader(bucket=bucket, region=region, enable_cache=True)
+        # Disable cache for replay Lambda - it runs infrequently and we want fresh data
+        _replay_loader = ReplayLoader(bucket=bucket, region=region, enable_cache=False)
         logger.info(f"Initialized ReplayLoader for bucket={bucket}")
     return _replay_loader
 
