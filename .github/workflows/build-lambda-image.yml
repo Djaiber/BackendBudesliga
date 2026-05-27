@@ -1,0 +1,67 @@
+name: Build Lambda Image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY: connected-arena-lambda
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Update Lambda functions
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          FUNCTIONS=(
+            "connected-arena-connect"
+            "connected-arena-disconnect"
+            "connected-arena-default"
+            "connected-arena-replay-event"
+            "connected-arena-game-engine-tick"
+            "connected-arena-room-merger"
+          )
+          for fn in "${FUNCTIONS[@]}"; do
+            aws lambda update-function-code \
+              --function-name "$fn" \
+              --image-uri "$IMAGE_URI" \
+              --region $AWS_REGION > /dev/null
+            echo "Updated $fn"
+          done
+          echo "Waiting for functions to become active..."
+          aws lambda wait function-active-v2 \
+            --function-name "${FUNCTIONS[-1]}" \
+            --region $AWS_REGION
+          echo "All functions updated and active."
