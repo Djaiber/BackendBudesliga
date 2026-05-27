@@ -95,6 +95,8 @@ def build_container() -> dict[str, Any]:
         table_name=config.dynamodb_table,
         ttl_seconds=config.prompt_cache_ttl_seconds,
         clock=clock,
+        region=config.aws_region,
+        endpoint_url=config.dynamodb_endpoint,
     )
     ai_generator = BedrockGenerator(
         model_id=config.bedrock_model_id,

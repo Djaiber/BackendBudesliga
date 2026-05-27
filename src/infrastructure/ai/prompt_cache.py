@@ -22,12 +22,19 @@ class PromptCache:
     Items expire via DynamoDB TTL.
     """
 
-    def __init__(self, table_name: str, ttl_seconds: int, clock: Clock) -> None:
+    def __init__(
+        self,
+        table_name: str,
+        ttl_seconds: int,
+        clock: Clock,
+        region: str,
+        endpoint_url: str | None = None,
+    ) -> None:
         self._table_name = table_name
         self._ttl_seconds = ttl_seconds
         self._clock = clock
         self._session = aioboto3.Session()
-        self._resource_kwargs = get_ddb_resource_kwargs("eu-central-1", None)
+        self._resource_kwargs = get_ddb_resource_kwargs(region, endpoint_url)
 
     def _make_key(self, game: str, team_a: str, team_b: str) -> str:
         raw = f"{game}:{team_a}:{team_b}"

@@ -1,10 +1,10 @@
 # Phase 4 Progress: Infrastructure Adapters
 
-## Status: IN PROGRESS (Deliverables 1-11 Complete)
+## Status: COMPLETE ✅ (All 17 Deliverables Done)
 
 Phase 4 implements AWS-backed adapters for all domain ports. This document tracks progress through the 17-step deliverable sequence.
 
-**Latest Update**: Deliverable 11 complete - WebSocket Broadcaster. Total: 258 tests passing (151 unit + 107 integration).
+**Latest Update**: All deliverables complete. 341 tests passing (96% coverage). mypy --strict clean.
 
 ## Completed ✅
 
@@ -165,44 +165,43 @@ Updated `pyproject.toml`:
   - Uses ConnectionRepositoryDDB to query connections by room
 - **Coverage**: 100%
 
-## Next Steps (Remaining 6 deliverables)
-
-### 12. Prompt Cache
+### 12. Prompt Cache ✅
 - **File**: `src/infrastructure/ai/prompt_cache.py`
-- **Tests**: `tests/integration/ai/test_prompt_cache.py`
+- **Tests**: `tests/integration/ai/test_prompt_cache.py` (10 tests)
 - **Purpose**: DynamoDB-backed cache for AI prompts
-- **TTL**: 60 seconds (configurable)
+- **TTL**: 60 seconds (configurable via InfraConfig)
+- **Fix**: Removed hardcoded `"eu-central-1"` — region + endpoint_url now passed via constructor
 
-### 13. Bedrock Generator
+### 13. Bedrock Generator ✅
 - **File**: `src/infrastructure/ai/bedrock_generator.py`
-- **Tests**: `tests/integration/ai/test_bedrock_generator.py`
+- **Tests**: `tests/integration/ai/test_bedrock_generator.py` (7 tests)
 - **Implements**: `AIGenerator` port
 - **Uses**: AWS Bedrock with Claude 3 Haiku
-- **Features**: Prompt caching, game-specific options
+- **Features**: Prompt caching, game-specific options, static fallbacks on error
 
-### 14. Replay Engine
+### 14. Replay Engine ✅
 - **Files**: `src/infrastructure/replay/xml_parser.py`, `src/infrastructure/replay/replay_engine.py`
 - **Tests**: `tests/integration/replay/test_*.py`
 - **Purpose**: Parse XML events and replay them in real-time
 - **Features**: Configurable speed factor, async event publishing
 
-### 15. Cognito Validator
-- **File**: `src/infrastructure/auth/cognito_validator.py`
-- **Tests**: `tests/integration/auth/test_cognito_validator.py`
+### 15. Cognito Validator ✅
+- **File**: `src/infrastructure/cognito/cognito_validator.py`
+- **Tests**: `tests/integration/cognito/test_cognito_validator.py` (12 tests)
 - **Purpose**: Validate Cognito JWT tokens
 - **Uses**: PyJWT + JWKS from Cognito
-- **Features**: JWKS caching (1 hour), signature verification
+- **Features**: JWKS caching (1 hour), full RS256 signature verification, audience + issuer checks
+- **Also**: `AcceptAnyTokenValidator` dev bypass (ACCEPT_ANY_TOKEN=true)
 
-### 16. Smoke Tests
-- **Files**: `scripts/smoke_test_*.py` (one per major adapter)
+### 16. Smoke Tests ✅
+- **Files**: `scripts/smoke_test_dynamodb.py`, `scripts/smoke_test_eventbridge.py`, `scripts/smoke_test_s3.py`, `scripts/smoke_test_bedrock.py`
 - **Purpose**: Manual validation against real AWS sandbox
-- **NOT run by pytest** - explicit manual execution
-- **Examples**: smoke_test_dynamodb.py, smoke_test_eventbridge.py, smoke_test_bedrock.py
+- **NOT run by pytest** — explicit manual execution only
+- **Usage**: `AWS_REGION=eu-central-1 DYNAMODB_TABLE=budes-dev python scripts/smoke_test_dynamodb.py`
 
-### 17. Full Test Suite
-- **Goal**: All Phase 2 + Phase 3 + Phase 4 tests passing
-- **Command**: `make test`
-- **Expected**: 98 (Phase 2) + 43 (Phase 3) + ~50 (Phase 4) = ~191 tests
+### 17. Full Test Suite ✅
+- **Result**: 341 tests passing (96% coverage), mypy --strict clean
+- **Breakdown**: ~151 unit + ~190 integration
 
 ## Architecture Principles
 
@@ -380,8 +379,3 @@ When Phase 4 is complete:
 - **Bedrock Testing**: Patch boto3 client, assert request body shape, return fixed JSON responses.
 - **Local Development**: All adapters support endpoint overrides via config for localstack testing.
 
-## Next Commit
-
-Will include:
-- Prompt Cache + Bedrock Generator (deliverables 12-13) - AI prompt generation with caching
-- Progress toward remaining deliverables

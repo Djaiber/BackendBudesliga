@@ -31,7 +31,12 @@ async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         return unauthorized("Invalid token")
 
     user_id: str = claims["sub"]
-    user_name: str = claims.get("email") or claims.get("cognito:username") or user_id
+    user_name: str = (
+        claims.get("name")
+        or claims.get("email")
+        or claims.get("cognito:username")
+        or user_id
+    )
 
     await container["connections"].put(
         conn_id=connection_id,
