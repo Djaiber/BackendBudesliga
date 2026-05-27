@@ -513,6 +513,12 @@ def main() -> int:
             if game_time:
                 minute, second = parse_match_time(game_time)
                 if minute != 0 or second != 0:  # Only update if valid
+                    # Normalize: KPI uses absolute seconds (can be >59 for injury time)
+                    # Convert to minute:second format where second is 0-59
+                    if second >= 60:
+                        extra_minutes = second // 60
+                        minute += extra_minutes
+                        second = second % 60
                     ev.minute = minute
                     ev.second = second
                     fixed_count += 1
