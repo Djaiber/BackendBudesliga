@@ -46,7 +46,11 @@ def _get_replay_loader() -> ReplayLoader:
 
 @lambda_handler
 async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
-    """Load events from S3 and replay them to EventBridge at high speed."""
+    """Load events from S3 and replay them to EventBridge at high speed.
+
+    NOTE: Multiple invocations will run concurrently and overlap events.
+    Wait for previous replay to complete before starting a new one.
+    """
     global _replay_engine
 
     # Get config

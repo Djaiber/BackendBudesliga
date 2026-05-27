@@ -220,11 +220,19 @@ def event_to_message(event: MatchEvent) -> MatchEventMessage:
     Returns:
         MatchEventMessage for broadcasting
     """
+    # Map team IDs to 'home' or 'away' for frontend
+    # DFL-CLU-000001 = Bayern (home), DFL-CLU-000002 = Hamburg (away)
+    team_side = event.team
+    if event.team == "DFL-CLU-000001":
+        team_side = "home"
+    elif event.team == "DFL-CLU-000002":
+        team_side = "away"
+
     return MatchEventMessage(
         type="match_event",
         event_type=event.event_type,
         minute=event.minute,
         second=event.second,
-        team=event.team,
+        team=team_side,
         player_name=event.player,
     )
