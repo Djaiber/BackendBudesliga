@@ -9,6 +9,9 @@ Environment variables:
 - REPLAY_BUCKET: S3 bucket name (default: bundesliga-replay-data)
 - REPLAY_KEY: S3 object key (default: events.json)
 - REPLAY_SPEED: Speed factor for replay (default: 600 = 1 match min in 100ms)
+
+IMPORTANT: Only ONE replay should run at a time to avoid duplicate events.
+Use DynamoDB lock to prevent concurrent replays.
 """
 
 from __future__ import annotations
@@ -48,8 +51,7 @@ def _get_replay_loader() -> ReplayLoader:
 async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     """Load events from S3 and replay them to EventBridge at high speed.
 
-    NOTE: Multiple invocations will run concurrently and overlap events.
-    Wait for previous replay to complete before starting a new one.
+    Uses DynamoDB lock to prevent concurrent replays.
     """
     global _replay_engine
 
@@ -58,8 +60,31 @@ async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
     key = os.environ.get("REPLAY_KEY", "events.json")
     speed = int(os.environ.get("REPLAY_SPEED", "600"))
 
+    # Try to acquire lock using DynamoDB
+    lock_key = "REPLAY_LOCK"
+    ttl_seconds = 7200  # 2 hours max replay duration
+
+    try:
+        # Try to create lock item (PutItem with condition that it doesn't exist)
+        await container["dynamodb"].put_item(
+            PK=f"LOCK#{lock_key}",
+            SK="ACTIVE",
+            data={
+                "locked_at": container["clock"].now_ms(),
+                "ttl": container["clock"].now_ms() // 1000 + ttl_seconds,
+            },
+            condition_expression="attribute_not_exists(PK)",
+        )
+    except Exception as exc:
+        # Lock already exists - another replay is running
+        logger.warning(
+            f"Replay already in progress, ignoring invocation: {exc}",
+            extra={"lock_key": lock_key},
+        )
+        return success({"message": "Replay already running", "locked": True})
+
     logger.info(
-        f"Starting S3 replay: bucket={bucket}, key={key}, speed={speed}x",
+        f"Acquired replay lock, starting: bucket={bucket}, key={key}, speed={speed}x",
         extra={"bucket": bucket, "key": key, "speed": speed},
     )
 
@@ -106,15 +131,26 @@ async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
 
     logger.info(f"Starting replay of {len(events)} events at {speed}x speed")
 
-    # Run replay (blocking - publishes all events sequentially)
-    await _replay_engine.run()
+    try:
+        # Run replay (blocking - publishes all events sequentially)
+        await _replay_engine.run()
 
-    logger.info(f"Replay complete - published {len(events)} events to EventBridge")
+        logger.info(f"Replay complete - published {len(events)} events to EventBridge")
 
-    return success(
-        {
-            "message": "Replay complete",
-            "events_published": len(events),
-            "event_types": dict(type_counts),
-        }
-    )
+        return success(
+            {
+                "message": "Replay complete",
+                "events_published": len(events),
+                "event_types": dict(type_counts),
+            }
+        )
+    finally:
+        # Always release the lock, even if replay fails
+        try:
+            await container["dynamodb"].delete_item(
+                PK=f"LOCK#{lock_key}",
+                SK="ACTIVE",
+            )
+            logger.info("Released replay lock")
+        except Exception as exc:
+            logger.error(f"Failed to release lock: {exc}")
