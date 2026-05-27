@@ -503,10 +503,29 @@ def main() -> int:
     if not events:
         print("ERROR: No events parsed", file=sys.stderr)
         return 1
+
+    # Fix match times from KPI data (Events XML has no MatchTime, KPI has GameTime)
+    print(f"Fixing match times from KPI GameTime attributes...")
+    fixed_count = 0
     for ev in events:
+        if ev.event_id in kpi_by_event_id:
+            game_time = kpi_by_event_id[ev.event_id].get("GameTime")
+            if game_time:
+                minute, second = parse_match_time(game_time)
+                if minute != 0 or second != 0:  # Only update if valid
+                    ev.minute = minute
+                    ev.second = second
+                    fixed_count += 1
+
+        # Promote SHOT→GOAL where KPI says successfulShot
         if ev.event_type == "SHOT" and ev.event_id in goal_event_ids:
             ev.event_type = "GOAL"
+
+    # Re-sort after fixing times
+    events.sort(key=lambda e: (e.minute, e.second))
+
     goal_count = sum(1 for ev in events if ev.event_type == "GOAL")
+    print(f"Fixed match times for {fixed_count}/{len(events)} events from KPI data")
     print(f"Goals marked: {goal_count} (score in match_info: {match_info.final_score})")
 
     # Write output files
