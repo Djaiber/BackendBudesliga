@@ -52,6 +52,7 @@ jobs:
             "connected-arena-replay-event"
             "connected-arena-game-engine-tick"
             "connected-arena-room-merger"
+            "connected-arena-s3-replay"
           )
           UPDATED=()
           for fn in "${FUNCTIONS[@]}"; do
