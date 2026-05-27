@@ -6,7 +6,15 @@ and produces a `container` dict with fully-wired use cases ready to invoke.
 
 from __future__ import annotations
 
+# IMPORTANT: configure logging FIRST, before any other imports that use logging.
+# Lambda's runtime pre-configures the root logger at WARNING level, dropping
+# all .info() calls. This module call replaces that configuration.
+from src.infrastructure.logging_config import configure_logging
+
+configure_logging()
+
 import logging
+import os
 from typing import Any
 
 from src.application.use_cases import (
@@ -166,6 +174,7 @@ def build_container() -> dict[str, Any]:
     list_active_rooms = ListActiveRoomsUseCase(room_repo=rooms)
 
     logger.info("Composition root built successfully")
+    logger.info("=== COLD START COMPLETE — log level: %s ===", os.environ.get("LOG_LEVEL", "INFO"))
 
     return {
         "config": config,
