@@ -156,6 +156,9 @@ class ConnectionRepositoryDDB:
 
             connections = []
             for item in response.get("Items", []):
+                pk = item.get("PK", "")
+                if not pk.startswith("CONN#"):
+                    continue
                 connections.append(
                     {
                         "conn_id": item["conn_id"],
