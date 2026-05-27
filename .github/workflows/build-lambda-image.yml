@@ -53,15 +53,25 @@ jobs:
             "connected-arena-game-engine-tick"
             "connected-arena-room-merger"
           )
+          UPDATED=()
           for fn in "${FUNCTIONS[@]}"; do
-            aws lambda update-function-code \
-              --function-name "$fn" \
-              --image-uri "$IMAGE_URI" \
-              --region $AWS_REGION > /dev/null
-            echo "Updated $fn"
+            if aws lambda get-function --function-name "$fn" --region $AWS_REGION > /dev/null 2>&1; then
+              aws lambda update-function-code \
+                --function-name "$fn" \
+                --image-uri "$IMAGE_URI" \
+                --region $AWS_REGION > /dev/null
+              echo "Updated $fn"
+              UPDATED+=("$fn")
+            else
+              echo "Skipped $fn (not yet deployed — run terraform apply first)"
+            fi
           done
-          echo "Waiting for functions to become active..."
-          aws lambda wait function-active-v2 \
-            --function-name "${FUNCTIONS[-1]}" \
-            --region $AWS_REGION
-          echo "All functions updated and active."
+          if [ ${#UPDATED[@]} -gt 0 ]; then
+            echo "Waiting for functions to become active..."
+            aws lambda wait function-active-v2 \
+              --function-name "${UPDATED[-1]}" \
+              --region $AWS_REGION
+            echo "All updated functions active."
+          else
+            echo "No functions deployed yet. Image pushed to ECR — run terraform apply to create Lambdas."
+          fi
