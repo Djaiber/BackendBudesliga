@@ -103,15 +103,16 @@ class PlayerLeftMessage(TypedDict):
     user_id: str
 
 
-class PredictionWindowOpenMessage(TypedDict):
+class PredictionWindowOpenMessage(TypedDict, total=False):
     """Broadcast when a new prediction window opens."""
 
     type: Literal["prediction_window_open"]
     window_id: str
-    game_type: str
+    game: str
     prompt: str
-    open_at_ms: int
-    close_at_ms: int
+    deadline_ms: int
+    opened_at_ms: int
+    options: list[str]
 
 
 class PredictionWindowCloseMessage(TypedDict):

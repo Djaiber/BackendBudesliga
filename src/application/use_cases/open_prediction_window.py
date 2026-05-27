@@ -82,16 +82,16 @@ class OpenPredictionWindowUseCase:
         await self._window_repo.save(window)
 
         # Broadcast to room
-        await self._broadcaster.broadcast_to_room(
-            room_id=room_id,
-            message={
-                "type": "prediction_window_open",
-                "window_id": window_id,
-                "game": game,
-                "prompt": prompt_text,
-                "opened_at_ms": now_ms,
-                "deadline_ms": now_ms + WINDOW_DURATION_MS,
-            },
-        )
+        message: dict = {
+            "type": "prediction_window_open",
+            "window_id": window_id,
+            "game": game,
+            "prompt": prompt_text,
+            "opened_at_ms": now_ms,
+            "deadline_ms": now_ms + WINDOW_DURATION_MS,
+        }
+        if options:
+            message["options"] = options
+        await self._broadcaster.broadcast_to_room(room_id=room_id, message=message)
 
         return window
