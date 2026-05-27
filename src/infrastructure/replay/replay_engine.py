@@ -27,6 +27,7 @@ class ReplayEngine:
         speed_factor: int = 60,
         source: str = "replay",
         detail_type: str = "MatchEvent",
+        start_offset_minutes: int = 0,
     ) -> None:
         if speed_factor < 1:
             raise ValueError("speed_factor must be >= 1")
@@ -41,6 +42,7 @@ class ReplayEngine:
         self._speed_factor = speed_factor
         self._source = source
         self._detail_type = detail_type
+        self._start_offset_ms = start_offset_minutes * 60 * 1000
         self._stopped = False
 
     async def run(self) -> None:
@@ -55,7 +57,8 @@ class ReplayEngine:
             if self._stopped:
                 break
 
-            event_match_time_ms = (event.minute * 60 + event.second) * 1000
+            # Calculate event time relative to start_offset (so minute 39 becomes minute 0)
+            event_match_time_ms = (event.minute * 60 + event.second) * 1000 - self._start_offset_ms
             event_real_time_ms = event_match_time_ms / self._speed_factor
             wait_ms = event_real_time_ms - (self._clock.now_ms() - start_ms)
 

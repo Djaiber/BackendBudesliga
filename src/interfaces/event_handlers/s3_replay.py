@@ -61,13 +61,21 @@ async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
 
     # Load events from S3 (cached after first load)
     loader = _get_replay_loader()
-    events = await loader.load_events(key)
+    all_events = await loader.load_events(key)
 
-    if not events:
+    if not all_events:
         logger.warning("No events loaded from S3")
         return success({"message": "No events to replay"})
 
-    logger.info(f"Loaded {len(events)} events from S3 (cache_size={loader.get_cache_size()})")
+    # Filter to start from minute 39 (first action in dataset)
+    # This allows real-time replay to start immediately with visible events
+    START_MINUTE = 39
+    events = [e for e in all_events if e.minute >= START_MINUTE]
+
+    logger.info(
+        f"Loaded {len(all_events)} events from S3, filtered to {len(events)} events from minute {START_MINUTE}+",
+        extra={"total_events": len(all_events), "filtered_events": len(events), "start_minute": START_MINUTE}
+    )
 
     # Count events by type for logging
     from collections import Counter
@@ -89,6 +97,7 @@ async def handler(event: dict[str, Any], context: object) -> dict[str, Any]:
         speed_factor=speed,
         source="replay",
         detail_type="MatchEvent",
+        start_offset_minutes=START_MINUTE,
     )
 
     logger.info(f"Starting replay of {len(events)} events at {speed}x speed")
